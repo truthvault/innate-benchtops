@@ -297,8 +297,9 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 .panel-row__subtotal-label {
-  font-size: .68rem; color: var(--ink-faint);
-  letter-spacing: .06em; text-transform: uppercase;
+  font-size: .66rem; color: var(--ink-faint);
+  letter-spacing: .1em; text-transform: uppercase;
+  font-weight: 500;
 }
 .panel-row__subtotal-value {
   font-variant-numeric: tabular-nums;
@@ -450,7 +451,7 @@ a { color: inherit; }
 .timber-tile__check {
   position: absolute; top: .5rem; right: .5rem;
   color: #f3f0ee; background: var(--forest);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px; width: 22px; height: 22px;
   box-shadow: 0 1px 3px rgba(0,0,0,.15);
 }
@@ -1090,9 +1091,9 @@ a { color: inherit; }
 
 /* Panel editor count */
 .panel-editor__count {
-  font-size: .74rem;
+  font-size: .72rem;
   font-weight: 500;
-  letter-spacing: .05em;
+  letter-spacing: .08em;
 }
 
 /* Helper / hint text */
@@ -1566,13 +1567,13 @@ a { color: inherit; }
   min-width: 0;
 }
 .stickybar__group-label {
-  font-size: .62rem;
+  font-size: .66rem;
   font-weight: 500;
-  letter-spacing: .12em;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--ink-faint);
   white-space: nowrap;
-  opacity: .8;
+  opacity: .85;
 }
 
 /* The Delivery group allows its inner wrapper to grow with the address input */
