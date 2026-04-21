@@ -4,7 +4,6 @@ import { formatNZD } from "../pricing";
 import {
   DESTINATIONS_GROUPED,
   SHIPPING,
-  resolveLocation,
   type ShippingMode,
 } from "../shipping";
 import type { FinishId } from "../species";
@@ -48,8 +47,6 @@ export function StickyBar({
 }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const [locating, setLocating] = useState(false);
-  const [locMsg, setLocMsg] = useState<string | null>(null);
   const last = useRef(totals.grand);
 
   useEffect(() => {
@@ -78,44 +75,6 @@ export function StickyBar({
         : shippingMode.kind === "pickup"
           ? "free"
           : "—";
-
-  const useMyLocation = async () => {
-    setLocMsg("Finding your nearest destination…");
-    setLocating(true);
-    try {
-      const res = await fetch("/api/locate");
-      const data = (await res.json()) as {
-        ok?: boolean;
-        lat?: number;
-        lng?: number;
-        city?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.ok || data.lat == null || data.lng == null) {
-        setLocMsg(
-          data.error ||
-            "Couldn't find your location automatically. Pick from the dropdown.",
-        );
-        return;
-      }
-      const r = resolveLocation({ lat: data.lat, lng: data.lng });
-      onShippingChange(r.mode);
-      const near = data.city ? ` (near ${data.city})` : "";
-      setLocMsg(`✓ Set to ${r.label}${near}`);
-      window.setTimeout(
-        () => setLocMsg((m) => (m?.startsWith("✓") ? null : m)),
-        3500,
-      );
-    } catch (e) {
-      setLocMsg(
-        e instanceof Error
-          ? `Couldn't reach the location service (${e.message}). Pick from the dropdown.`
-          : "Couldn't reach the location service. Pick from the dropdown.",
-      );
-    } finally {
-      setLocating(false);
-    }
-  };
 
   return (
     <>
@@ -206,19 +165,6 @@ export function StickyBar({
                 <option value="other">Other — we'll confirm freight with you</option>
               </optgroup>
             </select>
-            <button
-              type="button"
-              className="stickybar__delivery-loc"
-              onClick={useMyLocation}
-              disabled={locating}
-              aria-label="Use my location"
-              title="Use my location"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
-                <circle cx="8" cy="8" r="2.5" fill="currentColor" />
-                <path d="M8 .5v3M8 12.5v3M.5 8h3M12.5 8h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              </svg>
-            </button>
           </div>
 
           {/* Price (pushed right) */}
@@ -256,7 +202,6 @@ export function StickyBar({
             </svg>
           </button>
         </div>
-        {locMsg && <div className="stickybar__loc-msg">{locMsg}</div>}
       </div>
     </>
   );
