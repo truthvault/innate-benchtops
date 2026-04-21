@@ -148,77 +148,70 @@ export function StickyBar({
       )}
 
       <div className="stickybar" role="region" aria-label="Quote total">
-        {/* ── Options row: Finish + Delivery ─────────────────────── */}
-        <div className="stickybar__options">
-          <div className="stickybar__opt">
-            <span className="stickybar__opt-label">Finish</span>
-            <div className="stickybar__opt-seg" role="radiogroup" aria-label="Finish">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={finish === "oiled"}
-                className={`stickybar__opt-seg-btn${finish === "oiled" ? " is-on" : ""}`}
-                onClick={() => onFinishChange("oiled")}
-              >
-                Sanded &amp; oiled
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={finish === "raw"}
-                className={`stickybar__opt-seg-btn${finish === "raw" ? " is-on" : ""}`}
-                onClick={() => onFinishChange("raw")}
-              >
-                Raw
-              </button>
-            </div>
-          </div>
-
-          <div className={`stickybar__opt stickybar__opt--grow${isUnset ? " is-needs-attention" : ""}`}>
-            <span className="stickybar__opt-label">Delivery</span>
-            <div className="stickybar__opt-delivery">
-              <select
-                className="stickybar__opt-select"
-                value={modeToValue(shippingMode)}
-                onChange={(e) => onShippingChange(valueToMode(e.target.value))}
-              >
-                <option value="">— Pick a location —</option>
-                <option value="pickup">Pickup from workshop — free</option>
-                <optgroup label="Christchurch">
-                  <option value="chchMetro">Christchurch Metro — ${SHIPPING.chchMetroFlat}</option>
-                  <option value="chchSurrounds">Christchurch surrounds — ${SHIPPING.chchSurroundsFlat}</option>
-                </optgroup>
-                {DESTINATIONS_GROUPED.map((g) => (
-                  <optgroup key={g.label} label={g.label}>
-                    {g.destinations.map((d) => (
-                      <option key={d} value={`nw:${d}`}>{d}</option>
-                    ))}
-                  </optgroup>
-                ))}
-                <optgroup label="Somewhere else">
-                  <option value="other">Other — we'll confirm freight with you</option>
-                </optgroup>
-              </select>
-              <button
-                type="button"
-                className="stickybar__opt-loc"
-                onClick={useMyLocation}
-                disabled={locating}
-                aria-label="Use my location"
-                title="Use my location"
-              >
-                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
-                  <circle cx="8" cy="8" r="2.5" fill="currentColor" />
-                  <path d="M8 .5v3M8 12.5v3M.5 8h3M12.5 8h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        {locMsg && <div className="stickybar__loc-msg">{locMsg}</div>}
-
-        {/* ── Price + lead + CTA row ─────────────────────────────── */}
         <div className="stickybar__inner">
+          {/* Finish */}
+          <div className="stickybar__finish" role="radiogroup" aria-label="Finish">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={finish === "oiled"}
+              className={`stickybar__finish-btn${finish === "oiled" ? " is-on" : ""}`}
+              onClick={() => onFinishChange("oiled")}
+            >
+              Oiled
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={finish === "raw"}
+              className={`stickybar__finish-btn${finish === "raw" ? " is-on" : ""}`}
+              onClick={() => onFinishChange("raw")}
+            >
+              Raw
+            </button>
+          </div>
+
+          {/* Delivery */}
+          <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
+            <select
+              className="stickybar__delivery-select"
+              value={modeToValue(shippingMode)}
+              onChange={(e) => onShippingChange(valueToMode(e.target.value))}
+              aria-label="Delivery location"
+            >
+              <option value="">— Pick a location —</option>
+              <option value="pickup">Pickup from workshop — free</option>
+              <optgroup label="Christchurch">
+                <option value="chchMetro">Christchurch Metro — ${SHIPPING.chchMetroFlat}</option>
+                <option value="chchSurrounds">Christchurch surrounds — ${SHIPPING.chchSurroundsFlat}</option>
+              </optgroup>
+              {DESTINATIONS_GROUPED.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.destinations.map((d) => (
+                    <option key={d} value={`nw:${d}`}>{d}</option>
+                  ))}
+                </optgroup>
+              ))}
+              <optgroup label="Somewhere else">
+                <option value="other">Other — we'll confirm freight with you</option>
+              </optgroup>
+            </select>
+            <button
+              type="button"
+              className="stickybar__delivery-loc"
+              onClick={useMyLocation}
+              disabled={locating}
+              aria-label="Use my location"
+              title="Use my location"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                <circle cx="8" cy="8" r="2.5" fill="currentColor" />
+                <path d="M8 .5v3M8 12.5v3M.5 8h3M12.5 8h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Price (pushed right) */}
           <button
             type="button"
             className={`stickybar__price stickybar__price--btn${expanded ? " is-expanded" : ""}`}
@@ -238,14 +231,14 @@ export function StickyBar({
           </button>
 
           <div className="stickybar__lead" aria-label="Lead time">
-            ~{leadTimeWeeks} weeks
+            ~{leadTimeWeeks}w
           </div>
           <button
             type="button"
             className="btn-primary stickybar__cta"
             onClick={onRequest}
             disabled={!canShare}
-            title={canShare ? undefined : "Pick a delivery location above"}
+            title={canShare ? undefined : "Pick a delivery location first"}
           >
             Share this quote
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
@@ -253,6 +246,7 @@ export function StickyBar({
             </svg>
           </button>
         </div>
+        {locMsg && <div className="stickybar__loc-msg">{locMsg}</div>}
       </div>
     </>
   );
