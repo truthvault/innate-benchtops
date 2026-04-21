@@ -548,13 +548,13 @@ function NumHit({
     >
       <rect
         className="cutout__num-plate"
-        x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={3}
+        x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={4}
       />
       <text
         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-        fontSize="9" fill={textFill} fillOpacity={textOpacity}
-        fontFamily="Maven Pro, sans-serif"
-        style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none" }}
+        fontSize="9.5" fill={textFill} fillOpacity={textOpacity}
+        fontFamily="Maven Pro, sans-serif" fontWeight={500}
+        style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none", letterSpacing: "0.01em" }}
       >
         {value}
       </text>
