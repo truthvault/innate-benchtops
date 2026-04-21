@@ -37,6 +37,8 @@ export interface Quote {
   finish: FinishId;
   shipping: ShippingMode;
   customer: { name: string; email: string; phone: string; notes: string };
+  /** Stable customer-facing reference like "INT-651". Persisted with the quote. */
+  quoteNo: string;
 }
 
 export interface PanelBreakdown {
@@ -199,32 +201,14 @@ export function leadTimeWeeks(q: Quote): number {
   return q.finish === "raw" ? cfg.raw : cfg.other;
 }
 
-// Used in old LineCost consumers — kept for ergonomic access
-export interface OldLineCost {
-  area: number;
-  weight: number;
-  timber: number;
-  cutouts: number;
-  subtotal: number;
-}
-
-export function priceLine(p: Panel, speciesId: SpeciesId): OldLineCost {
-  const b = calcPanel(p, "oiled", speciesId);
-  const perJobFixed =
-    PRICING.laminating.collectionFee +
-    PRICING.laminating.deliveryFee +
-    PRICING.perJobFixed.panelRepairFund +
-    PRICING.perJobFixed.admin;
-  const qty = Math.max(1, Math.floor(p.quantity) || 1);
-  const { incl } = applyMarkup(b.subtotal + perJobFixed);
-  return {
-    area: b.areaM2,
-    weight: b.weightKg,
-    timber: b.timber,
-    cutouts: b.cutouts,
-    subtotal: incl / qty, // show per-unit incl-GST, aligned to new model
-  };
-}
+/**
+ * Build a panelId → priceTotal map from the canonical totals.
+ * This is the ONLY way the editor should display per-panel prices, so
+ * the number a customer sees in the panel card always matches the sticky
+ * bar (same finish, same overhead split).
+ */
+export const panelPriceMap = (totals: Totals): Record<string, number> =>
+  Object.fromEntries(totals.lines.map((l) => [l.panel.id, l.priceTotal]));
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
-import { priceLine, formatNZD } from "../pricing";
+import { formatNZD } from "../pricing";
 import { findSpecies, MIN_THICKNESS_MM, type SpeciesId } from "../species";
 import {
   defaultCutoutDims,
@@ -11,6 +11,12 @@ interface Props {
   panels: Panel[];
   species: SpeciesId;
   freshId: string | null;
+  /**
+   * Per-panel line price (incl GST, × quantity) keyed by panel id.
+   * Sourced from priceQuote() so editor-level numbers always match the
+   * sticky-bar total under the current finish + overhead split.
+   */
+  priceByPanelId: Record<string, number>;
   onUpdate: (id: string, next: Panel) => void;
   onRemove: (id: string) => void;
   onAdd: () => void;
@@ -18,7 +24,7 @@ interface Props {
 }
 
 export function PanelEditor({
-  panels, species, freshId, onUpdate, onRemove, onAdd, onCutoutChange,
+  panels, species, freshId, priceByPanelId, onUpdate, onRemove, onAdd, onCutoutChange,
 }: Props) {
   return (
     <section className="panel-editor" aria-labelledby="panel-editor-h">
@@ -36,6 +42,7 @@ export function PanelEditor({
             species={species}
             fresh={p.id === freshId}
             canRemove={panels.length > 1}
+            lineTotal={priceByPanelId[p.id] ?? 0}
             onUpdate={(next) => onUpdate(p.id, next)}
             onRemove={() => onRemove(p.id)}
             onCutoutChange={(cutoutId, updates) => onCutoutChange(p.id, cutoutId, updates)}
@@ -57,15 +64,15 @@ interface RowProps {
   species: SpeciesId;
   fresh: boolean;
   canRemove: boolean;
+  lineTotal: number;
   onUpdate: (next: Panel) => void;
   onRemove: () => void;
   onCutoutChange: (cutoutId: string, updates: Partial<Cutout>) => void;
 }
 
 function PanelRow({
-  panel, species, fresh, canRemove, onUpdate, onRemove, onCutoutChange,
+  panel, species, fresh, canRemove, lineTotal, onUpdate, onRemove, onCutoutChange,
 }: RowProps) {
-  const lineCost = priceLine(panel, species);
   const maxThickness = findSpecies(species).maxThicknessMm;
   const labelRef = useRef<HTMLInputElement>(null);
 
@@ -90,7 +97,7 @@ function PanelRow({
         />
         <div className="panel-row__subtotal" aria-label="Cost for this panel">
           <span className="panel-row__subtotal-label">This panel</span>
-          <span className="panel-row__subtotal-value">{formatNZD(lineCost.subtotal)}</span>
+          <span className="panel-row__subtotal-value">{formatNZD(lineTotal)}</span>
         </div>
         {canRemove && (
           <button

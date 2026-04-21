@@ -11,13 +11,17 @@ interface Props {
   open: boolean;
   quote: Quote;
   totals: Totals;
-  quoteNo: string;
   onClose: () => void;
   onCustomerPatch: (updates: Partial<Quote["customer"]>) => void;
   onReset: () => void;
 }
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+
+// Phone: strip everything non-digit, need at least 7 digits.
+// Prevents "x" / empty / punctuation-only junk passing the required check.
+const phoneDigits = (s: string) => (s ?? "").replace(/\D/g, "");
+const isPhone = (s: string) => phoneDigits(s).length >= 7;
 
 const PATHS: { id: SharePath; title: string; sub: string }[] = [
   {
@@ -38,8 +42,9 @@ const PATHS: { id: SharePath; title: string; sub: string }[] = [
 ];
 
 export function QuoteForm({
-  open, quote, totals, quoteNo, onClose, onCustomerPatch, onReset,
+  open, quote, totals, onClose, onCustomerPatch, onReset,
 }: Props) {
+  const quoteNo = quote.quoteNo;
   const [stage, setStage] = useState<Stage>("choose");
   const [path, setPath] = useState<SharePath>("self");
   const [recipientName, setRecipientName] = useState("");
@@ -48,6 +53,9 @@ export function QuoteForm({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Honeypot: bots fill every visible input. We hide this one visually +
+  // from assistive tech. Any non-empty value aborts the submit.
+  const [honey, setHoney] = useState("");
 
   const dialog = useRef<HTMLDivElement>(null);
   const firstField = useRef<HTMLInputElement>(null);
@@ -65,6 +73,7 @@ export function QuoteForm({
       setTouched(false);
       setErrorMsg(null);
       setCopied(false);
+      setHoney("");
     }
   }
 
@@ -88,7 +97,7 @@ export function QuoteForm({
 
   const nameOk = c.name.trim().length > 1;
   const emailOk = isEmail(c.email);
-  const phoneOk = !!c.phone?.trim();
+  const phoneOk = isPhone(c.phone ?? "");
   const recipNameOk = recipientName.trim().length > 1;
   const recipEmailOk = isEmail(recipientEmail);
 
@@ -104,6 +113,11 @@ export function QuoteForm({
   const submit = async () => {
     setTouched(true);
     if (!canSend) return;
+    // Honeypot tripped → silently succeed-look so we don't educate bots.
+    if (honey.trim()) {
+      setStage("success");
+      return;
+    }
     setStage("sending");
     setErrorMsg(null);
 
@@ -113,6 +127,7 @@ export function QuoteForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           path,
+          honeypot: honey, // server also rejects non-empty
           customer: {
             name: c.name.trim(),
             email: c.email.trim(),
@@ -260,6 +275,20 @@ export function QuoteForm({
               onSubmit={(e) => { e.preventDefault(); submit(); }}
               noValidate
             >
+              {/* Honeypot: visually and a11y-hidden. Bots filling every
+                  field will fill this one too; humans never see it. */}
+              <div aria-hidden style={{ position: "absolute", left: "-9999px", width: 1, height: 1, overflow: "hidden" }}>
+                <label>
+                  Website
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honey}
+                    onChange={(e) => setHoney(e.target.value)}
+                  />
+                </label>
+              </div>
               <label className="field">
                 <span>Your name</span>
                 <input
@@ -268,6 +297,7 @@ export function QuoteForm({
                   onChange={(e) => onCustomerPatch({ name: e.target.value })}
                   aria-invalid={touched && !nameOk}
                   autoComplete="name"
+                  maxLength={120}
                 />
               </label>
               <label className="field">
@@ -278,6 +308,7 @@ export function QuoteForm({
                   onChange={(e) => onCustomerPatch({ email: e.target.value })}
                   aria-invalid={touched && !emailOk}
                   autoComplete="email"
+                  maxLength={200}
                 />
               </label>
               <label className="field">
@@ -291,6 +322,8 @@ export function QuoteForm({
                   onChange={(e) => onCustomerPatch({ phone: e.target.value })}
                   aria-invalid={touched && path === "workshop" && !phoneOk}
                   autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={30}
                 />
               </label>
 
@@ -302,6 +335,7 @@ export function QuoteForm({
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
                       aria-invalid={touched && !recipNameOk}
+                      maxLength={120}
                     />
                   </label>
                   <label className="field">
@@ -311,6 +345,7 @@ export function QuoteForm({
                       value={recipientEmail}
                       onChange={(e) => setRecipientEmail(e.target.value)}
                       aria-invalid={touched && !recipEmailOk}
+                      maxLength={200}
                     />
                   </label>
                   <label className="field field--wide">
@@ -320,6 +355,7 @@ export function QuoteForm({
                       value={recipientNote}
                       onChange={(e) => setRecipientNote(e.target.value)}
                       placeholder="e.g. thinking about this for the kitchen — what do you reckon?"
+                      maxLength={1000}
                     />
                   </label>
                 </>
@@ -334,6 +370,7 @@ export function QuoteForm({
                   placeholder={path === "workshop"
                     ? "Install date, site access, finish preferences…"
                     : "Anything you'd like us to know."}
+                  maxLength={2000}
                 />
               </label>
 
@@ -356,7 +393,7 @@ export function QuoteForm({
                 <p className="quote-form__err" role="alert">
                   {!nameOk && "Your name is required. "}
                   {!emailOk && "A valid email is required. "}
-                  {path === "workshop" && !phoneOk && "Phone is required. "}
+                  {path === "workshop" && !phoneOk && "A valid phone number is required. "}
                   {path === "other" && !recipNameOk && "Recipient name is required. "}
                   {path === "other" && !recipEmailOk && "Recipient email is required."}
                 </p>

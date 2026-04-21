@@ -42,6 +42,8 @@ interface PayloadQuote {
 
 interface SendQuotePayload {
   path: SharePath;
+  /** Spam honeypot: any non-empty value is treated as bot traffic. */
+  honeypot?: string;
   customer: Customer;
   recipient?: Recipient;
   quote: PayloadQuote;
@@ -71,22 +73,73 @@ function allow(ip: string): boolean {
 // ─── Validation ────────────────────────────────────────────────────────
 
 const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+const phoneDigits = (s: string) => (s ?? "").replace(/\D/g, "");
+const isPhone = (s: string) => phoneDigits(s).length >= 7;
+
+// Length caps — any field over these limits is almost certainly spam or
+// accidental paste. Keeps the workshop inbox readable and email-provider
+// size limits safe.
+const LIMITS = {
+  name: 120,
+  email: 200,
+  phone: 30,
+  notes: 2000,
+  recipNote: 1000,
+  panelLabel: 80,
+  quoteNo: 40,
+  species: 80,
+  shippingLabel: 120,
+  shareUrl: 500,
+};
+
+function tooLong(s: string | undefined, max: number): boolean {
+  return !!s && s.length > max;
+}
 
 function validate(payload: SendQuotePayload): string | null {
   if (!payload || typeof payload !== "object") return "Invalid payload";
+
+  // Honeypot: bots fill every field. Any non-empty value = reject silently
+  // with a generic error (don't advertise the trap).
+  if (typeof payload.honeypot === "string" && payload.honeypot.trim()) {
+    return "Invalid submission";
+  }
+
   if (!["self", "workshop", "other"].includes(payload.path)) return "Invalid path";
   if (!payload.customer?.name?.trim()) return "Name required";
+  if (tooLong(payload.customer.name, LIMITS.name)) return "Name too long";
   if (!isEmail(payload.customer?.email ?? "")) return "Valid email required";
-  if (payload.path === "workshop" && !payload.customer.phone?.trim()) {
-    return "Phone required for workshop path";
+  if (tooLong(payload.customer.email, LIMITS.email)) return "Email too long";
+
+  if (payload.path === "workshop" && !isPhone(payload.customer.phone ?? "")) {
+    return "Valid phone number required";
   }
+  if (tooLong(payload.customer.phone, LIMITS.phone)) return "Phone too long";
+  if (tooLong(payload.customer.notes, LIMITS.notes)) return "Notes too long";
+
   if (payload.path === "other") {
     if (!payload.recipient?.name?.trim()) return "Recipient name required";
+    if (tooLong(payload.recipient.name, LIMITS.name)) return "Recipient name too long";
     if (!isEmail(payload.recipient?.email ?? "")) return "Valid recipient email required";
+    if (tooLong(payload.recipient.email, LIMITS.email)) return "Recipient email too long";
+    if (tooLong(payload.recipient.noteToRecipient, LIMITS.recipNote)) {
+      return "Note too long";
+    }
   }
+
   if (!payload.quoteNo?.trim()) return "Missing quote number";
+  if (tooLong(payload.quoteNo, LIMITS.quoteNo)) return "Quote number invalid";
   if (!payload.shareUrl?.trim()) return "Missing share URL";
+  if (tooLong(payload.shareUrl, LIMITS.shareUrl)) return "Share URL too long";
   if (!payload.quote?.panels?.length) return "Missing panel data";
+  if (payload.quote.panels.length > 20) return "Too many panels";
+  for (const p of payload.quote.panels) {
+    if (tooLong(p.label, LIMITS.panelLabel)) return "Panel label too long";
+  }
+  if (tooLong(payload.quote.species, LIMITS.species)) return "Species invalid";
+  if (tooLong(payload.totals?.shipping?.label, LIMITS.shippingLabel)) {
+    return "Shipping label invalid";
+  }
   return null;
 }
 

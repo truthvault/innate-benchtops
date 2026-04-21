@@ -35,6 +35,8 @@ const SURROUNDS_POSTCODES = new Set(SHIPPING.surroundsPostcodes);
 
 export type ShippingMode =
   | { kind: "unset" }
+  /** User clicked "Deliver to me" but hasn't resolved an address yet. */
+  | { kind: "delivering" }
   | { kind: "pickup" }
   | { kind: "chchMetro" }
   | { kind: "chchSurrounds" }
@@ -250,6 +252,8 @@ export function shippingCost(
 ): { cost: number; label: string } {
   switch (mode.kind) {
     case "unset":
+      return { cost: 0, label: "" };
+    case "delivering":
       return { cost: 0, label: "" };
     case "pickup":
       return { cost: 0, label: "Pickup from workshop" };

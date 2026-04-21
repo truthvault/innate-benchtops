@@ -152,7 +152,7 @@ export function AddressSearch({
 
   // Resolved zone tag (what the customer actually pays for)
   const zoneText =
-    value.kind === "unset"
+    value.kind === "unset" || value.kind === "delivering"
       ? ""
       : value.kind === "pickup"
         ? "Pickup · free"
@@ -224,6 +224,8 @@ export function AddressSearch({
 function displayFor(m: ShippingMode): string {
   switch (m.kind) {
     case "unset":
+      return "";
+    case "delivering":
       return "";
     case "pickup":
       return "";

@@ -6,7 +6,11 @@ import type { FinishId, SpeciesId, Thickness } from "./species";
 import type { Cutout, Panel, Quote } from "./pricing";
 import type { ShippingMode } from "./shipping";
 
-export const STORAGE_KEY = "innate.benchtop.v3";
+// v4 bump: default shipping changed to "unset", quoteNo now persisted,
+// URL hash no longer contains customer PII. Old v3 payloads still load
+// via the migration in loadInitial.
+export const STORAGE_KEY = "innate.benchtop.v4";
+const LEGACY_STORAGE_KEYS = ["innate.benchtop.v3"];
 
 let seq = 0;
 export const newId = () => {
@@ -34,15 +38,7 @@ export const blankPanel = (label = "Benchtop"): Panel => ({
   cutouts: [],
 });
 
-export const defaultShipping = (): ShippingMode => ({ kind: "pickup" });
-
-export const defaultQuote = (): Quote => ({
-  panels: [blankPanel("")],
-  species: "rimu" as SpeciesId,
-  finish: "oiled" as FinishId,
-  shipping: defaultShipping(),
-  customer: { name: "", email: "", phone: "", notes: "" },
-});
+export const defaultShipping = (): ShippingMode => ({ kind: "unset" });
 
 export const quoteNumber = (seed: string) => {
   const base = 648;
@@ -58,6 +54,20 @@ export const quoteNumber = (seed: string) => {
   return `INT-${n}`;
 };
 
+export const mintQuoteNo = () => {
+  const seed = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
+  return quoteNumber(seed);
+};
+
+export const defaultQuote = (): Quote => ({
+  panels: [blankPanel("")],
+  species: "rimu" as SpeciesId,
+  finish: "oiled" as FinishId,
+  shipping: defaultShipping(),
+  customer: { name: "", email: "", phone: "", notes: "" },
+  quoteNo: mintQuoteNo(),
+});
+
 const b64url = {
   encode(s: string) {
     return btoa(unescape(encodeURIComponent(s)))
@@ -72,7 +82,21 @@ const b64url = {
   },
 };
 
-export const encodeQuote = (q: Quote) => b64url.encode(JSON.stringify(q));
+/**
+ * Shape that's safe to put in a URL or copy-paste share. Contains the
+ * product configuration only — never customer PII.
+ */
+type ShareableQuote = Omit<Quote, "customer">;
+
+const stripForShare = (q: Quote): ShareableQuote => {
+  const { customer: _omit, ...rest } = q;
+  void _omit;
+  return rest;
+};
+
+/** URL-safe: excludes customer details. Use this for the hash + share links. */
+export const encodeQuoteForShare = (q: Quote) =>
+  b64url.encode(JSON.stringify(stripForShare(q)));
 
 type LegacyPanel = Omit<Partial<Panel>, "cutouts"> & {
   cutouts?: number | Array<Partial<Cutout>>;
@@ -141,57 +165,88 @@ const migrateShipping = (raw: LegacyQuote): ShippingMode => {
   return defaultShipping();
 };
 
+const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => ({
+  ...defaultQuote(),
+  ...raw,
+  panels: (raw.panels ?? []).map(migratePanel),
+  shipping: migrateShipping(raw),
+  customer: { ...defaultQuote().customer, ...(raw.customer ?? {}) },
+  quoteNo: typeof raw.quoteNo === "string" && raw.quoteNo.trim()
+    ? raw.quoteNo
+    : mintQuoteNo(),
+});
+
 export const decodeQuote = (s: string): Quote | null => {
   try {
-    const raw = JSON.parse(b64url.decode(s)) as LegacyQuote;
+    const raw = JSON.parse(b64url.decode(s)) as LegacyQuote & { quoteNo?: string };
     if (!raw || !Array.isArray(raw.panels)) return null;
-    return {
-      ...defaultQuote(),
-      ...raw,
-      panels: raw.panels.map(migratePanel),
-      shipping: migrateShipping(raw),
-      customer: { ...defaultQuote().customer, ...(raw.customer ?? {}) },
-    } as Quote;
+    return rehydrate(raw);
   } catch {
     return null;
   }
 };
 
+const readLocal = (): Quote | null => {
+  const keys = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as LegacyQuote & { quoteNo?: string };
+      if (!parsed || !Array.isArray(parsed.panels)) continue;
+      return rehydrate(parsed);
+    } catch {
+      // try next key
+    }
+  }
+  return null;
+};
+
 export const loadInitial = (): Quote => {
   if (typeof window === "undefined") return defaultQuote();
+
+  // A hash carries only the shareable config; merge any local customer
+  // info the owner of this browser might still have saved.
   const hash = window.location.hash.replace(/^#q=/, "");
-  if (hash) {
-    const q = decodeQuote(hash);
-    if (q) return q;
+  const fromHash = hash ? decodeQuote(hash) : null;
+  const fromLocal = readLocal();
+
+  if (fromHash) {
+    return {
+      ...fromHash,
+      // Only restore customer from localStorage when the hash matches the
+      // same quote (same quoteNo). Otherwise a visitor opening someone
+      // else's shared link would inherit their own saved contact data,
+      // not the sender's — which is what we want.
+      customer:
+        fromLocal && fromLocal.quoteNo === fromHash.quoteNo
+          ? fromLocal.customer
+          : defaultQuote().customer,
+    };
   }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const q = JSON.parse(raw) as LegacyQuote;
-      if (q && Array.isArray(q.panels)) {
-        return {
-          ...defaultQuote(),
-          ...q,
-          panels: q.panels.map(migratePanel),
-          shipping: migrateShipping(q),
-          customer: { ...defaultQuote().customer, ...(q.customer ?? {}) },
-        } as Quote;
-      }
-    }
-  } catch {
-    // ignore
-  }
+  if (fromLocal) return fromLocal;
   return defaultQuote();
 };
 
 export const persist = (q: Quote) => {
+  // Full quote (incl. customer) goes to localStorage only.
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
   } catch {
-    // ignore
+    // ignore quota / private-mode errors
   }
-  const encoded = encodeQuote(q);
+  // URL hash: config only. Customer fields NEVER land here.
+  const encoded = encodeQuoteForShare(q);
   const url = new URL(window.location.href);
   url.hash = `q=${encoded}`;
   window.history.replaceState(null, "", url);
+};
+
+export const clearPersisted = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    for (const k of LEGACY_STORAGE_KEYS) localStorage.removeItem(k);
+  } catch {
+    // ignore
+  }
 };

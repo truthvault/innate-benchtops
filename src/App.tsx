@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Cutout, Panel, Quote } from "./pricing";
-import { priceQuote } from "./pricing";
+import { panelPriceMap, priceQuote } from "./pricing";
 import type { ShippingMode } from "./shipping";
 import {
   blankPanel,
   defaultQuote,
   loadInitial,
   persist,
-  quoteNumber,
 } from "./state";
 import { findSpecies, type FinishId, type SpeciesId } from "./species";
 import { SlabPreview } from "./components/SlabPreview";
@@ -24,11 +23,6 @@ export default function App() {
   useEffect(() => { persist(quote); }, [quote]);
 
   const totals = useMemo(() => priceQuote(quote), [quote]);
-
-  const [session, setSession] = useState(() => {
-    const seed = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
-    return { seed, quoteNo: quoteNumber(seed) };
-  });
 
   const updatePanel = useCallback((id: string, next: Panel) =>
     setQuote((q) => ({ ...q, panels: q.panels.map((p) => (p.id === id ? next : p)) })), []);
@@ -85,9 +79,7 @@ export default function App() {
   );
 
   const resetQuote = useCallback(() => {
-    const seed = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
-    setSession({ seed, quoteNo: quoteNumber(seed) });
-    setQuote(defaultQuote());
+    setQuote(defaultQuote()); // defaultQuote mints a fresh quoteNo
     window.location.hash = "";
   }, []);
 
@@ -103,7 +95,7 @@ export default function App() {
         </div>
         <div className="mast__right">
           <span className="mast__quote-label">Quote</span>
-          <span className="mast__quote-no">{session.quoteNo}</span>
+          <span className="mast__quote-no">{quote.quoteNo}</span>
         </div>
       </header>
 
@@ -122,6 +114,7 @@ export default function App() {
             panels={quote.panels}
             species={quote.species}
             freshId={freshId}
+            priceByPanelId={panelPriceMap(totals)}
             onUpdate={updatePanel}
             onRemove={removePanel}
             onAdd={addPanel}
@@ -146,7 +139,6 @@ export default function App() {
         open={modalOpen}
         quote={quote}
         totals={totals}
-        quoteNo={session.quoteNo}
         onClose={() => setModalOpen(false)}
         onCustomerPatch={patchCustomer}
         onReset={resetQuote}

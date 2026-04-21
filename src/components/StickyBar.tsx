@@ -39,15 +39,25 @@ export function StickyBar({
   const direction = prior !== null ? (totals.grand > prior ? "up" : "down") : null;
   const isOther = shippingMode.kind === "other";
   const isUnset = shippingMode.kind === "unset";
+  const isDelivering = shippingMode.kind === "delivering";
   const isPickup = shippingMode.kind === "pickup";
-  const isDelivered = !isPickup;
-  const canShare = !isUnset;
+  // "Delivered" highlight & input render: user has either clicked the
+  // Delivered button (→ 'delivering') or already resolved an address.
+  const isDelivered =
+    isDelivering
+    || shippingMode.kind === "chchMetro"
+    || shippingMode.kind === "chchSurrounds"
+    || shippingMode.kind === "nationwide"
+    || shippingMode.kind === "other";
+  // Share is only allowed once the customer has explicitly picked pickup
+  // or a resolved delivery address. "unset" and "delivering" both block.
+  const canShare = !isUnset && !isDelivering;
 
   const pickPickup = () => onShippingChange({ kind: "pickup" });
   const pickDelivered = () => {
-    // Keep existing delivery mode if the user already picked one; otherwise
-    // start from "unset" so Share stays disabled until an address is chosen.
-    if (shippingMode.kind === "pickup") onShippingChange({ kind: "unset" });
+    // Enter a "delivering, no address yet" waypoint. Stays in this state
+    // until the customer picks an address (→ chchMetro / nationwide / …).
+    if (!isDelivered) onShippingChange({ kind: "delivering" });
   };
 
   const freightPrice =
@@ -129,7 +139,7 @@ export function StickyBar({
           {/* Delivery: Pickup / Delivered segmented + address input */}
           <div className="stickybar__group">
             <span className="stickybar__group-label">Delivery</span>
-            <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
+            <div className={`stickybar__delivery${(isUnset || isDelivering) ? " is-needs-attention" : ""}`}>
               <div className="stickybar__finish" role="radiogroup" aria-label="Delivery method">
                 <button
                   type="button"
@@ -156,7 +166,7 @@ export function StickyBar({
                   shippingCost={totals.shipping.cost}
                   shippingLabel={totals.shipping.label}
                   onChange={onShippingChange}
-                  autoFocus
+                  autoFocus={isDelivering}
                 />
               )}
             </div>
