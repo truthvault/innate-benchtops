@@ -85,10 +85,11 @@ function PanelRow({
           ref={labelRef}
           className="panel-row__label"
           value={panel.label}
-          placeholder="Label (e.g. Island bench)"
+          placeholder="Name this piece (optional), e.g. Kitchen island"
           onChange={(e) => onUpdate({ ...panel, label: e.target.value })}
         />
-        <div className="panel-row__subtotal" aria-label="Line subtotal">
+        <div className="panel-row__subtotal" aria-label="Cost for this panel">
+          <span className="panel-row__subtotal-label">This panel</span>
           <span className="panel-row__subtotal-value">{formatNZD(lineCost.subtotal)}</span>
         </div>
         {canRemove && (
