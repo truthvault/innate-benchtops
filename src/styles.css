@@ -1674,9 +1674,8 @@ a { color: inherit; }
   font-weight: 500;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   white-space: nowrap;
-  opacity: .85;
 }
 
 /* The Delivery group allows its inner wrapper to grow with the address input */
