@@ -1,0 +1,396 @@
+import { useEffect, useRef } from "react";
+import type { Cutout, Panel } from "../pricing";
+import { priceLine, formatNZD } from "../pricing";
+import { findSpecies, MIN_THICKNESS_MM, type SpeciesId } from "../species";
+import {
+  DEFAULT_CUTOUT_DEPTH_MM,
+  DEFAULT_CUTOUT_WIDTH_MM,
+  newId,
+} from "../state";
+
+interface Props {
+  panels: Panel[];
+  species: SpeciesId;
+  freshId: string | null;
+  onUpdate: (id: string, next: Panel) => void;
+  onRemove: (id: string) => void;
+  onAdd: () => void;
+  onCutoutChange: (panelId: string, cutoutId: string, updates: Partial<Cutout>) => void;
+}
+
+export function PanelEditor({
+  panels, species, freshId, onUpdate, onRemove, onAdd, onCutoutChange,
+}: Props) {
+  return (
+    <section className="panel-editor" aria-labelledby="panel-editor-h">
+      <header className="panel-editor__head">
+        <h2 id="panel-editor-h">Panels</h2>
+        <span className="panel-editor__count">
+          {panels.length} {panels.length === 1 ? "piece" : "pieces"}
+        </span>
+      </header>
+      <ul className="panel-editor__list" role="list">
+        {panels.map((p) => (
+          <PanelRow
+            key={p.id}
+            panel={p}
+            species={species}
+            fresh={p.id === freshId}
+            canRemove={panels.length > 1}
+            onUpdate={(next) => onUpdate(p.id, next)}
+            onRemove={() => onRemove(p.id)}
+            onCutoutChange={(cutoutId, updates) => onCutoutChange(p.id, cutoutId, updates)}
+          />
+        ))}
+      </ul>
+      <button type="button" className="btn-ghost panel-editor__add" onClick={onAdd}>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+          <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        Add another panel
+      </button>
+    </section>
+  );
+}
+
+interface RowProps {
+  panel: Panel;
+  species: SpeciesId;
+  fresh: boolean;
+  canRemove: boolean;
+  onUpdate: (next: Panel) => void;
+  onRemove: () => void;
+  onCutoutChange: (cutoutId: string, updates: Partial<Cutout>) => void;
+}
+
+function PanelRow({
+  panel, species, fresh, canRemove, onUpdate, onRemove, onCutoutChange,
+}: RowProps) {
+  const lineCost = priceLine(panel, species);
+  const maxThickness = findSpecies(species).maxThicknessMm;
+  const labelRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (fresh) labelRef.current?.focus();
+  }, [fresh]);
+
+  const setNum = (k: keyof Panel, v: number) => onUpdate({ ...panel, [k]: v });
+
+  const removeCutout = (id: string) =>
+    onUpdate({ ...panel, cutouts: panel.cutouts.filter((c) => c.id !== id) });
+
+  return (
+    <li className={`panel-row${fresh ? " is-fresh" : ""}`}>
+      <div className="panel-row__top">
+        <input
+          ref={labelRef}
+          className="panel-row__label"
+          value={panel.label}
+          placeholder="Label (e.g. Island bench)"
+          onChange={(e) => onUpdate({ ...panel, label: e.target.value })}
+        />
+        <div className="panel-row__subtotal" aria-label="Line subtotal">
+          <span className="panel-row__subtotal-value">{formatNZD(lineCost.subtotal)}</span>
+        </div>
+        {canRemove && (
+          <button
+            type="button"
+            className="panel-row__remove"
+            aria-label={`Remove ${panel.label || "panel"}`}
+            onClick={onRemove}
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      <div className="panel-row__dims">
+        <NumField
+          label="Length"
+          unit="mm"
+          value={panel.length}
+          min={200}
+          max={4800}
+          step={10}
+          onChange={(n) => setNum("length", n)}
+        />
+        <NumField
+          label="Width"
+          unit="mm"
+          value={panel.width}
+          min={200}
+          max={1200}
+          step={10}
+          onChange={(n) => setNum("width", n)}
+        />
+        <NumField
+          label="Thickness"
+          unit="mm"
+          value={panel.thickness}
+          min={MIN_THICKNESS_MM}
+          max={maxThickness}
+          step={1}
+          onChange={(n) => setNum("thickness", n)}
+        />
+        <NumField
+          label="Qty"
+          value={panel.quantity}
+          min={1}
+          max={20}
+          step={1}
+          onChange={(n) => setNum("quantity", n)}
+        />
+      </div>
+
+      <div className="panel-row__cutouts">
+        <Stepper
+          label="Sink/cooktop cutouts"
+          value={panel.cutouts.length}
+          min={0}
+          max={4}
+          onChange={(n) => {
+            const current = panel.cutouts.length;
+            if (n > current) {
+              onUpdate({ ...panel, cutouts: addCutout(panel) });
+            } else if (n < current) {
+              onUpdate({ ...panel, cutouts: panel.cutouts.slice(0, n) });
+            }
+          }}
+        />
+      </div>
+
+      {panel.cutouts.length > 0 && (
+        <ul className="cutout-list" role="list">
+          {panel.cutouts.map((c, i) => (
+            <CutoutDetail
+              key={c.id}
+              index={i}
+              total={panel.cutouts.length}
+              cutout={c}
+              panel={panel}
+              onChange={(updates) => onCutoutChange(c.id, updates)}
+              onRemove={() => removeCutout(c.id)}
+            />
+          ))}
+          <li className="cutout-list__hint">
+            Drag any cutout on the preview to reposition it. Use the inputs for exact values.
+          </li>
+        </ul>
+      )}
+    </li>
+  );
+}
+
+interface CutoutDetailProps {
+  index: number;
+  total: number;
+  cutout: Cutout;
+  panel: Panel;
+  onChange: (updates: Partial<Cutout>) => void;
+  onRemove: () => void;
+}
+
+function CutoutDetail({
+  index, total, cutout, panel, onChange, onRemove,
+}: CutoutDetailProps) {
+  // current edge-to-edge distances in mm
+  const fromLeft = Math.round(cutout.pos * panel.length - cutout.widthMm / 2);
+  const fromFront = Math.round(cutout.cross * panel.width - cutout.depthMm / 2);
+
+  const maxW = Math.max(50, panel.length - 20);
+  const maxD = Math.max(50, panel.width - 20);
+
+  const setWidth = (w: number) => {
+    const next = clamp(w, 50, maxW);
+    // keep "fromLeft" stable when resizing so the user's left-anchored placement doesn't jump
+    const nextPos = clamp((fromLeft + next / 2) / panel.length, 0, 1);
+    onChange({ widthMm: next, pos: nextPos });
+  };
+  const setDepth = (d: number) => {
+    const next = clamp(d, 50, maxD);
+    const nextCross = clamp((fromFront + next / 2) / panel.width, 0, 1);
+    onChange({ depthMm: next, cross: nextCross });
+  };
+  const setFromLeft = (mm: number) => {
+    const clamped = clamp(mm, 0, Math.max(0, panel.length - cutout.widthMm));
+    const nextPos = (clamped + cutout.widthMm / 2) / panel.length;
+    onChange({ pos: nextPos });
+  };
+  const setFromFront = (mm: number) => {
+    const clamped = clamp(mm, 0, Math.max(0, panel.width - cutout.depthMm));
+    const nextCross = (clamped + cutout.depthMm / 2) / panel.width;
+    onChange({ cross: nextCross });
+  };
+
+  return (
+    <li className="cutout-item">
+      <div className="cutout-item__head">
+        <span className="cutout-item__label">
+          Cutout {index + 1}
+          {total > 1 ? <em> of {total}</em> : null}
+        </span>
+        <button
+          type="button"
+          className="cutout-item__remove"
+          aria-label={`Remove cutout ${index + 1}`}
+          onClick={onRemove}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="cutout-item__grid">
+        <NumField
+          label="Width"
+          unit="mm"
+          value={cutout.widthMm}
+          min={50}
+          max={maxW}
+          step={10}
+          onChange={setWidth}
+        />
+        <NumField
+          label="Depth"
+          unit="mm"
+          value={cutout.depthMm}
+          min={50}
+          max={maxD}
+          step={10}
+          onChange={setDepth}
+        />
+        <NumField
+          label="From left"
+          unit="mm"
+          value={fromLeft}
+          min={0}
+          max={Math.max(0, panel.length - cutout.widthMm)}
+          step={5}
+          onChange={setFromLeft}
+        />
+        <NumField
+          label="From front"
+          unit="mm"
+          value={fromFront}
+          min={0}
+          max={Math.max(0, panel.width - cutout.depthMm)}
+          step={5}
+          onChange={setFromFront}
+        />
+      </div>
+    </li>
+  );
+}
+
+// Place a new cutout at the midpoint of the largest existing gap along the
+// length axis, so adding one doesn't shift any existing cutout.
+function addCutout(panel: Panel): Cutout[] {
+  const sorted = panel.cutouts.map((c) => c.pos).sort((a, b) => a - b);
+  const points = [0, ...sorted, 1];
+  let bestGap = -1;
+  let bestMid = 0.5;
+  for (let i = 0; i < points.length - 1; i++) {
+    const g = points[i + 1] - points[i];
+    if (g > bestGap) {
+      bestGap = g;
+      bestMid = (points[i] + points[i + 1]) / 2;
+    }
+  }
+  const half = DEFAULT_CUTOUT_WIDTH_MM / 2 / panel.length;
+  const pos = Math.max(half, Math.min(1 - half, bestMid));
+  return [
+    ...panel.cutouts,
+    {
+      id: newId(),
+      pos,
+      cross: 0.5,
+      widthMm: DEFAULT_CUTOUT_WIDTH_MM,
+      depthMm: DEFAULT_CUTOUT_DEPTH_MM,
+    },
+  ];
+}
+
+function NumField({
+  label,
+  unit,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+}: {
+  label: string;
+  unit?: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <label className="numfield">
+      <span className="numfield__label">{label}{unit ? <em> ({unit})</em> : null}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={Number.isFinite(value) ? value : ""}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) onChange(clamp(n, min, max));
+        }}
+      />
+    </label>
+  );
+}
+
+function Stepper({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <div className="stepper">
+      <span className="stepper__label">{label}</span>
+      <div className="stepper__controls">
+        <button
+          type="button"
+          className="stepper__btn"
+          aria-label={`Decrease ${label}`}
+          disabled={value <= min}
+          onClick={() => onChange(clamp(value - 1, min, max))}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+            <path d="M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        <span className="stepper__value" aria-live="polite">{value}</span>
+        <button
+          type="button"
+          className="stepper__btn"
+          aria-label={`Increase ${label}`}
+          disabled={value >= max}
+          onClick={() => onChange(clamp(value + 1, min, max))}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden>
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));

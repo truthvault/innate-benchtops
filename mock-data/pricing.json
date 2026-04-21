@@ -1,0 +1,14 @@
+{
+  "thicknessFactors": {
+    "27": 0.8,
+    "40": 1.0,
+    "50": 1.22
+  },
+  "cutout": 150,
+  "rawDiscount": 0.10,
+  "gstRate": 0.15,
+  "minJob": 450,
+  "leadTimeWeeks": 6,
+  "currency": "NZD",
+  "locale": "en-NZ"
+}

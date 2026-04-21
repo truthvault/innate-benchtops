@@ -1,0 +1,50 @@
+[
+  {
+    "id": "rimu",
+    "name": "Rimu",
+    "latin": "Dacrydium cupressinum",
+    "origin": "West Coast",
+    "rateNZD": 560,
+    "densityKgM3": 610,
+    "maxThicknessMm": 33,
+    "photo": "/timbers/rimu.jpg",
+    "grain": {
+      "base": "#c58a4a",
+      "streak": "#8a4a1a",
+      "mid": "#a06a2a",
+      "highlight": "#e3b47a"
+    }
+  },
+  {
+    "id": "totara",
+    "name": "Tōtara",
+    "latin": "Podocarpus totara",
+    "origin": "Northland",
+    "rateNZD": 588,
+    "densityKgM3": 550,
+    "maxThicknessMm": 43,
+    "photo": "/timbers/totara.jpg",
+    "grain": {
+      "base": "#b8793a",
+      "streak": "#6a3a12",
+      "mid": "#94572a",
+      "highlight": "#d9a066"
+    }
+  },
+  {
+    "id": "beech",
+    "name": "Beech",
+    "latin": "Nothofagus fusca",
+    "origin": "West Coast",
+    "rateNZD": 588,
+    "densityKgM3": 630,
+    "maxThicknessMm": 43,
+    "photo": "/timbers/beech.jpg",
+    "grain": {
+      "base": "#d8b67e",
+      "streak": "#8a5c30",
+      "mid": "#b08850",
+      "highlight": "#efd6a6"
+    }
+  }
+]

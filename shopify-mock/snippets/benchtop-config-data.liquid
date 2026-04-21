@@ -1,0 +1,27 @@
+{%- comment -%}
+  Reads the shop-scoped metafields and emits a single JSON document that the
+  React app consumes on mount. Falls back gracefully if any metafield is
+  missing — the bundled mock-data JSON in the app acts as a safety net.
+{%- endcomment -%}
+
+{%- liquid
+  assign species   = shop.metafields.innate_benchtop.species.value
+  assign pricing   = shop.metafields.innate_benchtop.pricing.value
+  assign delivery  = shop.metafields.innate_benchtop.delivery.value
+  assign leadtime  = pricing.leadTimeWeeks | default: 6
+-%}
+
+<script id="innate-bt-config" type="application/json">
+{
+  "version": 1,
+  "species":   {{ species   | json | default: 'null' }},
+  "pricing":   {{ pricing   | json | default: 'null' }},
+  "delivery":  {{ delivery  | json | default: 'null' }},
+  "leadTimeWeeks": {{ leadtime | json }},
+  "shop": {
+    "name":   {{ shop.name | json }},
+    "url":    {{ shop.secure_url | json }},
+    "locale": {{ shop.locale | json }}
+  }
+}
+</script>

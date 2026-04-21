@@ -1,0 +1,48 @@
+{%- comment -%}
+  Illustrative only. Demonstrates how the modal's "Send to workshop" action
+  could become a real Shopify contact form submission. The React app would
+  post a hidden <form> with the serialised configurator summary in
+  contact[body]. The Shopify form handler emails the workshop.
+
+  To swap the fake-success flow in QuoteForm.tsx for a real submission:
+    1. Replace setTimeout(..., 820) with form.submit()
+    2. Catch the redirect + show the success state from /pages/benchtops?submitted=1
+    3. Add a hidden input with the full configurator summary (JSON string)
+{%- endcomment -%}
+
+{% form 'contact', id: 'innate-bt-quote-form', class: 'bt-form', data-bt-quote-form: '' %}
+  <input type="hidden" name="contact[tags]" value="benchtop-quote">
+  <input type="hidden" name="contact[quote_number]" data-bt-quote-number>
+  <input type="hidden" name="contact[total_incl_gst]" data-bt-quote-total>
+  <input type="hidden" name="contact[body]" data-bt-quote-summary>
+
+  <label class="bt-form__row">
+    <span>Name</span>
+    <input name="contact[name]" required>
+  </label>
+  <label class="bt-form__row">
+    <span>Email</span>
+    <input type="email" name="contact[email]" required>
+  </label>
+  <label class="bt-form__row">
+    <span>Phone</span>
+    <input type="tel" name="contact[phone]">
+  </label>
+  <label class="bt-form__row bt-form__row--wide">
+    <span>Notes</span>
+    <textarea name="contact[notes]" rows="3"></textarea>
+  </label>
+
+  <button type="submit" class="bt-form__submit">Send to workshop</button>
+
+  {% if form.posted_successfully? %}
+    <p class="bt-form__ok" role="status">
+      Thanks — we've logged this quote. A real person will follow up within a working day.
+    </p>
+  {% endif %}
+  {%- if form.errors -%}
+    <p class="bt-form__err" role="alert">
+      {{ form.errors | default_errors }}
+    </p>
+  {%- endif -%}
+{% endform %}

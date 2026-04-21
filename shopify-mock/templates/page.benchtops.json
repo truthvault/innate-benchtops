@@ -1,0 +1,12 @@
+{
+  "sections": {
+    "main": {
+      "type": "benchtop-configurator",
+      "settings": {
+        "heading": "Benchtops",
+        "intro": "Solid timber benchtops, cut to your size. Three NZ species, six week lead time, delivered nationwide."
+      }
+    }
+  },
+  "order": ["main"]
+}
