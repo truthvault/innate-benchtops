@@ -869,15 +869,22 @@ a { color: inherit; }
 }
 
 /* Backlit leader labels: no plate, the text itself is light with a dark
-   halo stroke. Hover deepens the halo so the number "lights up" a touch
-   without moving. */
+   halo stroke plus a soft diffused outer glow for contrast. Hover deepens
+   the halo so the number "lights up" a touch without moving. */
 .cutout__num--backlit .cutout__num-text {
-  transition: stroke-opacity .18s var(--ease), stroke-width .18s var(--ease);
+  stroke-width: 3.6;
+  stroke-opacity: 1;
+  filter:
+    drop-shadow(0 0 1.6px rgba(12, 32, 28, 0.85))
+    drop-shadow(0 0 1px rgba(12, 32, 28, 0.9));
+  transition: stroke-width .18s var(--ease), filter .18s var(--ease);
 }
 .cutout__num--backlit:hover .cutout__num-text,
 .cutout__num--backlit:focus-visible .cutout__num-text {
-  stroke-opacity: 1;
-  stroke-width: 3.4;
+  stroke-width: 4.2;
+  filter:
+    drop-shadow(0 0 2.2px rgba(12, 32, 28, 0.95))
+    drop-shadow(0 0 1.2px rgba(12, 32, 28, 1));
 }
 
 /* Inline-edit input rendered inside SVG foreignObject.
