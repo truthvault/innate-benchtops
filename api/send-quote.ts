@@ -242,14 +242,48 @@ function workshopSubject(payload: SendQuotePayload): string {
   return `${tag} ${quoteNo} · ${quote.species} ${dim} · ${customer.name}`;
 }
 
-// ─── Vercel Function handler ───────────────────────────────────────────
+// ─── Vercel Function handler (classic Node signature) ─────────────────
 
-export default async function handler(req: Request): Promise<Response> {
+import type { IncomingMessage, ServerResponse } from "node:http";
+
+interface VercelIncomingMessage extends IncomingMessage {
+  /** Vercel's default body-parser parses JSON automatically */
+  body?: unknown;
+}
+
+function send(
+  res: ServerResponse,
+  status: number,
+  body: Record<string, unknown>,
+): void {
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json");
+  res.end(JSON.stringify(body));
+}
+
+async function readJson(req: VercelIncomingMessage): Promise<SendQuotePayload | null> {
+  // Vercel auto-parses application/json, but guard against both parsed
+  // and unparsed cases.
+  if (req.body && typeof req.body === "object") {
+    return req.body as SendQuotePayload;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SendQuotePayload;
+  } catch {
+    return null;
+  }
+}
+
+export default async function handler(
+  req: VercelIncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "POST only" }), {
-      status: 405,
-      headers: { "content-type": "application/json" },
-    });
+    return send(res, 405, { ok: false, error: "POST only" });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -258,50 +292,35 @@ export default async function handler(req: Request): Promise<Response> {
   const innate = process.env.INNATE_EMAIL ?? "hello@innatefurniture.co.nz";
 
   if (!apiKey || !fromEmail) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "Email service not configured" }),
-      { status: 503, headers: { "content-type": "application/json" } },
-    );
+    return send(res, 503, { ok: false, error: "Email service not configured" });
   }
   const from = `${fromName} <${fromEmail}>`;
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
+  const fwd = req.headers["x-forwarded-for"];
+  const fwdStr = Array.isArray(fwd) ? fwd[0] : fwd;
+  const real = req.headers["x-real-ip"];
+  const realStr = Array.isArray(real) ? real[0] : real;
+  const ip = (fwdStr?.split(",")[0].trim() ?? realStr ?? "unknown") as string;
 
   if (!allow(ip)) {
-    return new Response(JSON.stringify({ ok: false, error: "Too many requests" }), {
-      status: 429,
-      headers: { "content-type": "application/json" },
-    });
+    return send(res, 429, { ok: false, error: "Too many requests" });
   }
 
-  let payload: SendQuotePayload;
-  try {
-    payload = (await req.json()) as SendQuotePayload;
-  } catch {
-    return new Response(JSON.stringify({ ok: false, error: "Invalid JSON" }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
+  const payload = await readJson(req);
+  if (!payload) {
+    return send(res, 400, { ok: false, error: "Invalid JSON" });
   }
 
   const err = validate(payload);
   if (err) {
-    return new Response(JSON.stringify({ ok: false, error: err }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
+    return send(res, 400, { ok: false, error: err });
   }
 
   const resend = new Resend(apiKey);
-
   const html = htmlBody(payload);
   const text = textBody(payload);
 
   try {
-    // ── Primary recipient ──────────────────────────────────────────
     const primaryTo =
       payload.path === "self"
         ? payload.customer.email
@@ -318,8 +337,6 @@ export default async function handler(req: Request): Promise<Response> {
       html,
     });
 
-    // ── Always cc the workshop (except when workshop IS the primary,
-    //    because then it already got the email above) ──────────────
     if (payload.path !== "workshop") {
       await resend.emails.send({
         from,
@@ -331,15 +348,9 @@ export default async function handler(req: Request): Promise<Response> {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    return send(res, 200, { ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Send failed";
-    return new Response(JSON.stringify({ ok: false, error: msg }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
+    return send(res, 502, { ok: false, error: msg });
   }
 }
