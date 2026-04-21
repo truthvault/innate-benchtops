@@ -34,7 +34,7 @@ export const blankPanel = (label = "Benchtop"): Panel => ({
   cutouts: [],
 });
 
-export const defaultShipping = (): ShippingMode => ({ kind: "pickup" });
+export const defaultShipping = (): ShippingMode => ({ kind: "unset" });
 
 export const defaultQuote = (): Quote => ({
   panels: [blankPanel("")],

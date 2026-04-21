@@ -34,6 +34,7 @@ const METRO_POSTCODES = new Set(SHIPPING.metroPostcodes);
 const SURROUNDS_POSTCODES = new Set(SHIPPING.surroundsPostcodes);
 
 export type ShippingMode =
+  | { kind: "unset" }
   | { kind: "pickup" }
   | { kind: "chchMetro" }
   | { kind: "chchSurrounds" }
@@ -248,6 +249,8 @@ export function shippingCost(
   panels: Panel[],
 ): { cost: number; label: string } {
   switch (mode.kind) {
+    case "unset":
+      return { cost: 0, label: "" };
     case "pickup":
       return { cost: 0, label: "Pickup from workshop" };
     case "chchMetro":

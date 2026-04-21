@@ -13,14 +13,11 @@ import { findSpecies, type FinishId, type SpeciesId } from "./species";
 import { SlabPreview } from "./components/SlabPreview";
 import { PanelEditor } from "./components/PanelEditor";
 import { TimberPicker } from "./components/TimberPicker";
-import { FinishToggle } from "./components/FinishToggle";
-import { DeliveryPicker } from "./components/DeliveryPicker";
 import { StickyBar } from "./components/StickyBar";
 import { QuoteForm } from "./components/QuoteForm";
 
 export default function App() {
   const [quote, setQuote] = useState<Quote>(() => loadInitial());
-  const [address, setAddress] = useState("");
   const [freshId, setFreshId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -91,7 +88,6 @@ export default function App() {
     const seed = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
     setSession({ seed, quoteNo: quoteNumber(seed) });
     setQuote(defaultQuote());
-    setAddress("");
     window.location.hash = "";
   }, []);
 
@@ -134,15 +130,6 @@ export default function App() {
 
           <TimberPicker value={quote.species} onChange={setSpecies} />
 
-          <FinishToggle value={quote.finish} onChange={setFinish} />
-
-          <DeliveryPicker
-            value={quote.shipping}
-            address={address}
-            onChange={setShipping}
-            onAddressChange={setAddress}
-          />
-
           <footer className="fineprint">
             <p>
               All prices include GST. Timber is milled and finished in Ōtautahi Christchurch.
@@ -155,7 +142,10 @@ export default function App() {
       <StickyBar
         totals={totals}
         shippingMode={quote.shipping}
+        finish={quote.finish}
         leadTimeWeeks={totals.leadTimeWeeks}
+        onFinishChange={setFinish}
+        onShippingChange={setShipping}
         onRequest={() => setModalOpen(true)}
       />
 
