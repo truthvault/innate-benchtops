@@ -1611,9 +1611,13 @@ a { color: inherit; }
 .stickybar__loc-msg {
   max-width: 1280px;
   margin: 0 auto;
-  padding: .25rem 1.25rem .5rem;
-  font-size: .76rem;
-  color: var(--ink-soft);
+  padding: .4rem 1.25rem .55rem;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--stone-100);
+  border-top: 1px solid var(--stone-200);
+  animation: fadeIn .2s var(--ease);
 }
 
 .stickybar__cta:disabled {

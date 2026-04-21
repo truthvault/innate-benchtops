@@ -80,27 +80,43 @@ export function StickyBar({
           : "—";
 
   const useMyLocation = () => {
-    setLocMsg(null);
     if (!navigator.geolocation) {
-      setLocMsg("Your browser doesn't support location.");
+      setLocMsg("This browser doesn't support location detection.");
       return;
     }
+    setLocMsg("Checking your location…");
     setLocating(true);
+    const timer = window.setTimeout(
+      () => setLocMsg((m) => (m === "Checking your location…"
+        ? "Still checking… If no prompt appeared, check the address-bar location icon (🔒) or System Settings → Privacy & Security → Location Services → Chrome."
+        : m)),
+      3000,
+    );
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        window.clearTimeout(timer);
         setLocating(false);
         const r = resolveLocation({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         });
         onShippingChange(r.mode);
+        setLocMsg(`✓ Set to ${r.label}`);
+        window.setTimeout(() => setLocMsg((m) => (m?.startsWith("✓") ? null : m)), 3500);
       },
       (err) => {
+        window.clearTimeout(timer);
         setLocating(false);
         if (err.code === err.PERMISSION_DENIED) {
-          setLocMsg("Location blocked. Enable it in macOS Privacy & Security → Location Services → Chrome.");
+          setLocMsg(
+            "Location is blocked. Open System Settings → Privacy & Security → Location Services, turn on Google Chrome, then try again. (Or click the 🔒 in the address bar → Site settings → Location → Allow.)",
+          );
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          setLocMsg("Can't read your location right now. Pick from the dropdown instead.");
+        } else if (err.code === err.TIMEOUT) {
+          setLocMsg("Location request timed out. Pick from the dropdown, or try again.");
         } else {
-          setLocMsg("Couldn't read your location. Pick from the list above.");
+          setLocMsg("Couldn't get your location. Pick from the dropdown instead.");
         }
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60_000 },
