@@ -311,10 +311,10 @@ export function SlabPreview({
                         />
                       </g>
                       {editing?.cutoutId === cutout.id && editing.field === "h" ? (
-                        renderEdit(pc, "h", hLabelX - 24, cy - 11, 48, 22, Math.round(nearH), commitEdit, setEditing)
+                        renderEdit(pc, "h", hLabelX - 28, cy - 13, 56, 26, Math.round(nearH), commitEdit, setEditing)
                       ) : (
                         <NumHit
-                          cx={hLabelX} cy={cy} w={36} h={16}
+                          cx={hLabelX} cy={cy} w={44} h={20}
                           value={Math.round(nearH)}
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${hNearLeft ? "left" : "right"} edge, ${Math.round(nearH)} mm. Click to edit.`}
@@ -340,10 +340,10 @@ export function SlabPreview({
                         />
                       </g>
                       {editing?.cutoutId === cutout.id && editing.field === "v" ? (
-                        renderEdit(pc, "v", cx - 24, vLabelY - 11, 48, 22, Math.round(nearV), commitEdit, setEditing)
+                        renderEdit(pc, "v", cx - 28, vLabelY - 13, 56, 26, Math.round(nearV), commitEdit, setEditing)
                       ) : (
                         <NumHit
-                          cx={cx} cy={vLabelY} w={36} h={16}
+                          cx={cx} cy={vLabelY} w={44} h={20}
                           value={Math.round(nearV)}
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${vNearTop ? "front" : "back"} edge, ${Math.round(nearV)} mm. Click to edit.`}
@@ -364,10 +364,10 @@ export function SlabPreview({
                       onPointerDown={(e) => { if (onCutoutChange) e.stopPropagation(); }}
                     >
                       {editing?.cutoutId === cutout.id && editing.field === "w" ? (
-                        renderEdit(pc, "w", cx - 44, cy - 11, 38, 22, cutout.widthMm, commitEdit, setEditing)
+                        renderEdit(pc, "w", cx - 52, cy - 13, 44, 26, cutout.widthMm, commitEdit, setEditing)
                       ) : (
                         <NumHit
-                          cx={cx - 18} cy={cy} w={32} h={18}
+                          cx={cx - 22} cy={cy} w={40} h={22}
                           value={cutout.widthMm}
                           interactive={!!onCutoutChange}
                           aria={`Cutout width, ${cutout.widthMm} mm. Click to edit.`}
@@ -379,17 +379,17 @@ export function SlabPreview({
                       )}
                       <text
                         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9.5" fill="#0c201c" fillOpacity="0.55"
+                        fontSize="12" fill="#0c201c" fillOpacity="0.55"
                         fontFamily="Maven Pro, sans-serif" aria-hidden fontWeight={500}
                         style={{ pointerEvents: "none" }}
                       >
                         ×
                       </text>
                       {editing?.cutoutId === cutout.id && editing.field === "d" ? (
-                        renderEdit(pc, "d", cx + 6, cy - 11, 38, 22, cutout.depthMm, commitEdit, setEditing)
+                        renderEdit(pc, "d", cx + 8, cy - 13, 44, 26, cutout.depthMm, commitEdit, setEditing)
                       ) : (
                         <NumHit
-                          cx={cx + 18} cy={cy} w={32} h={18}
+                          cx={cx + 22} cy={cy} w={40} h={22}
                           value={cutout.depthMm}
                           interactive={!!onCutoutChange}
                           aria={`Cutout depth, ${cutout.depthMm} mm. Click to edit.`}
@@ -572,11 +572,11 @@ function NumHit({
       <text
         className="cutout__num-text"
         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-        fontSize="9.5"
+        fontSize="12"
         fill={variant === "backlit" ? "#f3f0ee" : textFill}
         fillOpacity={variant === "backlit" ? 1 : textOpacity}
         stroke={variant === "backlit" ? "#0c201c" : undefined}
-        strokeWidth={variant === "backlit" ? 2.6 : undefined}
+        strokeWidth={variant === "backlit" ? 3 : undefined}
         strokeLinejoin={variant === "backlit" ? "round" : undefined}
         strokeOpacity={variant === "backlit" ? 0.9 : undefined}
         paintOrder={variant === "backlit" ? "stroke fill" : undefined}
