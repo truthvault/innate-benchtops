@@ -153,7 +153,8 @@ export default function App() {
       </main>
 
       <StickyBar
-        grand={totals.grand}
+        totals={totals}
+        shippingMode={quote.shipping}
         leadTimeWeeks={totals.leadTimeWeeks}
         onRequest={() => setModalOpen(true)}
       />
