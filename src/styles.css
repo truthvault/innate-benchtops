@@ -1565,42 +1565,109 @@ a { color: inherit; }
   display: inline-flex;
   align-items: stretch;
   gap: .3rem;
-  min-width: 180px;
-  max-width: 280px;
-  flex: 0 1 auto;
+  min-width: 220px;
+  max-width: 360px;
+  flex: 1 1 260px;
 }
-.stickybar__delivery-select {
+
+.stickybar__pickup-btn {
+  flex: 0 0 auto;
+  padding: .42rem .65rem;
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: .82rem;
+  font-weight: 500;
+  transition: background .12s var(--ease), color .12s var(--ease), border-color .12s var(--ease);
+}
+.stickybar__pickup-btn:hover {
+  background: var(--stone-50);
+  border-color: var(--forest-line);
+  color: var(--ink);
+}
+.stickybar__pickup-btn.is-on {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #f3f0ee;
+}
+
+/* ---------- address search combobox ---------- */
+
+.addr-search {
   flex: 1; min-width: 0;
+  position: relative;
+  display: flex; flex-direction: column;
+}
+.addr-search__input {
+  width: 100%;
   border: 1px solid var(--stone-200);
   background: var(--paper);
   border-radius: var(--radius);
-  padding: .42rem .6rem;
-  padding-right: 1.8rem;
+  padding: .42rem .65rem;
   font-size: .82rem;
   font-family: inherit;
   color: var(--ink);
-  appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'><path d='M4 6l4 4 4-4' stroke='%23163832' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right .6rem center;
 }
-.stickybar__delivery-select:focus { border-color: var(--forest); outline: none; }
-.stickybar__delivery-loc {
-  flex: 0 0 auto;
-  padding: .42rem .5rem;
-  border: 1px solid var(--stone-200);
-  border-radius: var(--radius);
-  background: var(--paper);
-  color: var(--forest);
-  display: inline-flex; align-items: center; justify-content: center;
-  transition: background .12s var(--ease), border-color .12s var(--ease);
-}
-.stickybar__delivery-loc:hover { background: var(--stone-50); border-color: var(--forest-line); }
-.stickybar__delivery-loc:disabled { opacity: .55; cursor: wait; }
+.addr-search__input:focus { border-color: var(--forest); outline: none; }
+.addr-search__input::placeholder { color: var(--ink-faint); }
 
-.stickybar__delivery.is-needs-attention .stickybar__delivery-select {
+.stickybar__delivery.is-needs-attention .addr-search__input {
   border-color: var(--forest);
   box-shadow: 0 0 0 3px rgba(22, 56, 50, 0.08);
+}
+
+.addr-search__dropdown {
+  position: absolute;
+  left: 0; right: 0; bottom: calc(100% + 4px);
+  list-style: none;
+  margin: 0; padding: .3rem;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(12, 32, 28, 0.14);
+  z-index: 60;
+}
+.addr-search__opt {
+  display: flex; flex-direction: column;
+  padding: .5rem .6rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .08s var(--ease);
+}
+.addr-search__opt:hover,
+.addr-search__opt.is-active {
+  background: var(--stone-50);
+}
+.addr-search__main {
+  font-size: .88rem;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.3;
+}
+.addr-search__sec {
+  font-size: .76rem;
+  color: var(--ink-soft);
+  line-height: 1.3;
+  margin-top: .1rem;
+}
+.addr-search__status {
+  padding: .55rem .6rem;
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+.addr-search__status--err { color: var(--danger); }
+
+.addr-search__zone {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  font-size: .72rem;
+  color: var(--ink-soft);
+  letter-spacing: .01em;
+  white-space: nowrap;
 }
 
 /* Price pushed to the right, separated from the option controls */

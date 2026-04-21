@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Totals } from "../pricing";
 import { formatNZD } from "../pricing";
-import {
-  DESTINATIONS_GROUPED,
-  SHIPPING,
-  type ShippingMode,
-} from "../shipping";
+import type { ShippingMode } from "../shipping";
 import type { FinishId } from "../species";
+import { AddressSearch } from "./AddressSearch";
 
 interface Props {
   totals: Totals;
@@ -16,29 +13,6 @@ interface Props {
   onFinishChange: (f: FinishId) => void;
   onShippingChange: (m: ShippingMode) => void;
   onRequest: () => void;
-}
-
-// ─── dropdown serialisation ───────────────────────────────────────────
-
-function modeToValue(m: ShippingMode): string {
-  switch (m.kind) {
-    case "unset": return "";
-    case "pickup": return "pickup";
-    case "chchMetro": return "chchMetro";
-    case "chchSurrounds": return "chchSurrounds";
-    case "nationwide": return m.destination ? `nw:${m.destination}` : "";
-    case "other": return "other";
-  }
-}
-
-function valueToMode(v: string): ShippingMode {
-  if (v === "") return { kind: "unset" };
-  if (v === "pickup") return { kind: "pickup" };
-  if (v === "chchMetro") return { kind: "chchMetro" };
-  if (v === "chchSurrounds") return { kind: "chchSurrounds" };
-  if (v === "other") return { kind: "other" };
-  if (v.startsWith("nw:")) return { kind: "nationwide", destination: v.slice(3) };
-  return { kind: "unset" };
 }
 
 export function StickyBar({
@@ -142,29 +116,21 @@ export function StickyBar({
 
           {/* Delivery */}
           <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
-            <select
-              className="stickybar__delivery-select"
-              value={modeToValue(shippingMode)}
-              onChange={(e) => onShippingChange(valueToMode(e.target.value))}
-              aria-label="Delivery location"
+            <button
+              type="button"
+              className={`stickybar__pickup-btn${shippingMode.kind === "pickup" ? " is-on" : ""}`}
+              onClick={() => onShippingChange({ kind: "pickup" })}
+              aria-pressed={shippingMode.kind === "pickup"}
+              title="I'll pick up from the workshop"
             >
-              <option value="">— Pick a location —</option>
-              <option value="pickup">Pickup from workshop — free</option>
-              <optgroup label="Christchurch">
-                <option value="chchMetro">Christchurch Metro — ${SHIPPING.chchMetroFlat}</option>
-                <option value="chchSurrounds">Christchurch surrounds — ${SHIPPING.chchSurroundsFlat}</option>
-              </optgroup>
-              {DESTINATIONS_GROUPED.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.destinations.map((d) => (
-                    <option key={d} value={`nw:${d}`}>{d}</option>
-                  ))}
-                </optgroup>
-              ))}
-              <optgroup label="Somewhere else">
-                <option value="other">Other — we'll confirm freight with you</option>
-              </optgroup>
-            </select>
+              Pickup
+            </button>
+            <AddressSearch
+              value={shippingMode}
+              shippingCost={totals.shipping.cost}
+              shippingLabel={totals.shipping.label}
+              onChange={onShippingChange}
+            />
           </div>
 
           {/* Price (pushed right) */}
