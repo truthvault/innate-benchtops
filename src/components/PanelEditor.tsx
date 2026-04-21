@@ -31,7 +31,13 @@ export function PanelEditor({
       <header className="panel-editor__head">
         <h2 id="panel-editor-h">Panels</h2>
         <span className="panel-editor__count">
-          {panels.length} {panels.length === 1 ? "piece" : "pieces"}
+          {(() => {
+            const units = panels.reduce(
+              (s, p) => s + Math.max(1, Math.floor(p.quantity) || 1),
+              0,
+            );
+            return `${units} ${units === 1 ? "piece" : "pieces"}`;
+          })()}
         </span>
       </header>
       <ul className="panel-editor__list" role="list">
@@ -73,7 +79,9 @@ interface RowProps {
 function PanelRow({
   panel, species, fresh, canRemove, lineTotal, onUpdate, onRemove, onCutoutChange,
 }: RowProps) {
-  const maxThickness = findSpecies(species).maxThicknessMm;
+  const sp = findSpecies(species);
+  const maxThickness = sp.maxThicknessMm;
+  const thicknessAtCap = panel.thickness >= maxThickness;
   const labelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,6 +147,7 @@ function PanelRow({
           min={MIN_THICKNESS_MM}
           max={maxThickness}
           step={1}
+          hint={thicknessAtCap ? `max for ${sp.name}` : undefined}
           onCommit={(n) => setNum("thickness", n)}
         />
         <NumField
@@ -293,6 +302,7 @@ function NumField({
   min,
   max,
   step = 1,
+  hint,
   onCommit,
 }: {
   label: string;
@@ -301,6 +311,8 @@ function NumField({
   min: number;
   max: number;
   step?: number;
+  /** Optional helper text appended after the unit, e.g. "max for Rimu". */
+  hint?: string;
   onCommit: (n: number) => void;
 }) {
   const [text, setText] = useState(() => String(value));
@@ -324,7 +336,11 @@ function NumField({
 
   return (
     <label className="numfield">
-      <span className="numfield__label">{label}{unit ? <em> ({unit})</em> : null}</span>
+      <span className="numfield__label">
+        {label}
+        {unit ? <em> ({unit})</em> : null}
+        {hint ? <em className="numfield__hint"> · {hint}</em> : null}
+      </span>
       <input
         type="text"
         inputMode="numeric"

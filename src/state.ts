@@ -170,7 +170,10 @@ const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => ({
   ...raw,
   panels: (raw.panels ?? []).map(migratePanel),
   shipping: migrateShipping(raw),
-  customer: { ...defaultQuote().customer, ...(raw.customer ?? {}) },
+  // Customer details are NEVER rehydrated. The share form starts empty
+  // every load so stray partial state ("g", a half-typed phone, etc)
+  // from an earlier session or a legacy URL hash can't leak back in.
+  customer: defaultQuote().customer,
   quoteNo: typeof raw.quoteNo === "string" && raw.quoteNo.trim()
     ? raw.quoteNo
     : mintQuoteNo(),
@@ -204,34 +207,21 @@ const readLocal = (): Quote | null => {
 
 export const loadInitial = (): Quote => {
   if (typeof window === "undefined") return defaultQuote();
-
-  // A hash carries only the shareable config; merge any local customer
-  // info the owner of this browser might still have saved.
   const hash = window.location.hash.replace(/^#q=/, "");
   const fromHash = hash ? decodeQuote(hash) : null;
+  if (fromHash) return fromHash;
   const fromLocal = readLocal();
-
-  if (fromHash) {
-    return {
-      ...fromHash,
-      // Only restore customer from localStorage when the hash matches the
-      // same quote (same quoteNo). Otherwise a visitor opening someone
-      // else's shared link would inherit their own saved contact data,
-      // not the sender's — which is what we want.
-      customer:
-        fromLocal && fromLocal.quoteNo === fromHash.quoteNo
-          ? fromLocal.customer
-          : defaultQuote().customer,
-    };
-  }
   if (fromLocal) return fromLocal;
   return defaultQuote();
 };
 
 export const persist = (q: Quote) => {
-  // Full quote (incl. customer) goes to localStorage only.
+  // Product config goes to localStorage too — customer fields are
+  // stripped so reloads never repopulate the contact form with stale
+  // partial data. If we ever want "remember me", it should be an
+  // explicit opt-in under a separate key, not a silent side-effect.
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripForShare(q)));
   } catch {
     // ignore quota / private-mode errors
   }
