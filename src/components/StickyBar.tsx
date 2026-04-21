@@ -10,13 +10,15 @@ interface Props {
   shippingMode: ShippingMode;
   finish: FinishId;
   leadTimeWeeks: number;
+  /** True when at least one panel is bench-sized (see quoteHasBenchtop). */
+  hasBenchtop: boolean;
   onFinishChange: (f: FinishId) => void;
   onShippingChange: (m: ShippingMode) => void;
   onRequest: () => void;
 }
 
 export function StickyBar({
-  totals, shippingMode, finish, leadTimeWeeks,
+  totals, shippingMode, finish, leadTimeWeeks, hasBenchtop,
   onFinishChange, onShippingChange, onRequest,
 }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
@@ -50,8 +52,15 @@ export function StickyBar({
     || shippingMode.kind === "nationwide"
     || shippingMode.kind === "other";
   // Share is only allowed once the customer has explicitly picked pickup
-  // or a resolved delivery address. "unset" and "delivering" both block.
-  const canShare = !isUnset && !isDelivering;
+  // or a resolved delivery address, AND the quote contains at least one
+  // bench-sized panel. "unset" and "delivering" both block on delivery;
+  // `hasBenchtop=false` blocks because shelves can't stand alone.
+  const canShare = !isUnset && !isDelivering && hasBenchtop;
+  const shareDisabledReason = !hasBenchtop
+    ? "Add a benchtop (1200 × 250 mm or larger)"
+    : isUnset || isDelivering
+      ? "Pick a delivery location first"
+      : undefined;
 
   const pickPickup = () => onShippingChange({ kind: "pickup" });
   const pickDelivered = () => {
@@ -180,7 +189,7 @@ export function StickyBar({
             className="btn-primary stickybar__cta"
             onClick={onRequest}
             disabled={!canShare}
-            title={canShare ? undefined : "Pick a delivery location first"}
+            title={shareDisabledReason}
           >
             Share this quote
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>

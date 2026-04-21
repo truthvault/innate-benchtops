@@ -32,7 +32,11 @@ export const SPECIES: Species[] = speciesJson as Species[];
 export const findSpecies = (id: SpeciesId): Species =>
   SPECIES.find((s) => s.id === id) ?? SPECIES[0];
 
-export const MIN_THICKNESS_MM = 12;
+// Product floors — no panel can go below these on any axis.
+// Matches the thinnest benchtop thickness on the Innate shop (20 mm).
+export const MIN_LENGTH_MM = 300;
+export const MIN_WIDTH_MM = 250;
+export const MIN_THICKNESS_MM = 20;
 export const DEFAULT_THICKNESS_MM = 33;
 
 export const PRICING = pricingJson as {

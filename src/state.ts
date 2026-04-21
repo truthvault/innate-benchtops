@@ -1,5 +1,8 @@
 import {
   DEFAULT_THICKNESS_MM,
+  MIN_LENGTH_MM,
+  MIN_THICKNESS_MM,
+  MIN_WIDTH_MM,
   PRICING,
 } from "./species";
 import type { FinishId, SpeciesId, Thickness } from "./species";
@@ -141,13 +144,19 @@ const migratePanel = (p: LegacyPanel): Panel => {
   } else {
     cutouts = buildCutouts((p.sinks ?? 0) + (p.cooktops ?? 0));
   }
+  // Defensively clamp each dimension to the current product minimums so a
+  // legacy shared URL with tiny / out-of-range panels can't rehydrate
+  // into an invalid editor state.
   return {
     id: p.id ?? newId(),
     label: p.label ?? "",
-    length: p.length ?? 2400,
-    width: p.width ?? 650,
-    thickness: (p.thickness ?? DEFAULT_THICKNESS_MM) as Thickness,
-    quantity: p.quantity ?? 1,
+    length: Math.max(MIN_LENGTH_MM, p.length ?? 2400),
+    width: Math.max(MIN_WIDTH_MM, p.width ?? 650),
+    thickness: Math.max(
+      MIN_THICKNESS_MM,
+      p.thickness ?? DEFAULT_THICKNESS_MM,
+    ) as Thickness,
+    quantity: Math.max(1, Math.floor(p.quantity ?? 1) || 1),
     cutouts,
   };
 };

@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
 import { formatNZD } from "../pricing";
-import { findSpecies, MIN_THICKNESS_MM, type SpeciesId } from "../species";
+import {
+  findSpecies,
+  MIN_LENGTH_MM,
+  MIN_THICKNESS_MM,
+  MIN_WIDTH_MM,
+  type SpeciesId,
+} from "../species";
 import {
   defaultCutoutDims,
   newId,
@@ -61,6 +67,10 @@ export function PanelEditor({
         </svg>
         Add another panel
       </button>
+      <p className="cutout-list__hint panel-editor__floor-hint">
+        Each quote needs one benchtop (1200 × 250 × 20 mm or larger).
+        Narrow shelves and offcuts can be added alongside, down to 300 × 250 × 20 mm.
+      </p>
     </section>
   );
 }
@@ -124,7 +134,7 @@ function PanelRow({
           label="Length"
           unit="mm"
           value={panel.length}
-          min={200}
+          min={MIN_LENGTH_MM}
           max={4800}
           step={10}
           onCommit={(n) => setNum("length", n)}
@@ -133,7 +143,7 @@ function PanelRow({
           label="Width"
           unit="mm"
           value={panel.width}
-          min={200}
+          min={MIN_WIDTH_MM}
           max={2000}
           step={10}
           onCommit={(n) => setNum("width", n)}

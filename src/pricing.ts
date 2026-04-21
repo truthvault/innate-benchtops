@@ -210,6 +210,21 @@ export function leadTimeWeeks(q: Quote): number {
 export const panelPriceMap = (totals: Totals): Record<string, number> =>
   Object.fromEntries(totals.lines.map((l) => [l.panel.id, l.priceTotal]));
 
+/**
+ * Every shareable quote must contain at least one bench-sized panel.
+ * Shelves and small offcuts are only allowed as add-ons alongside a
+ * real benchtop — a standalone quote for a tiny piece doesn't make
+ * commercial sense for a custom workshop.
+ */
+export const BENCHTOP_MIN_LENGTH_MM = 1200;
+export const BENCHTOP_MIN_WIDTH_MM = 250;
+
+export const quoteHasBenchtop = (panels: Panel[]): boolean =>
+  panels.some(
+    (p) =>
+      p.length >= BENCHTOP_MIN_LENGTH_MM && p.width >= BENCHTOP_MIN_WIDTH_MM,
+  );
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

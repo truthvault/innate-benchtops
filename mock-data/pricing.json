@@ -15,7 +15,7 @@
     "labourRate": 30,
     "sandingHoursPerM2": 2,
     "coatingHoursPerM2": 2,
-    "minHours": 1,
+    "minHours": 0.5,
     "oilCostPer10L": 800,
     "oilCoverageM2PerL": 8
   },
