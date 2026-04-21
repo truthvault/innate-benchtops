@@ -437,7 +437,7 @@ a { color: inherit; }
 }
 .timber-tile:hover .timber-tile__photo img { transform: scale(1.02); }
 .timber-tile__meta {
-  display: flex; flex-direction: column; gap: .15rem;
+  display: flex; flex-direction: column; gap: .2rem;
   padding: .6rem .7rem .7rem;
 }
 .timber-tile__name { font-weight: 600; font-size: .95rem; }
@@ -1205,13 +1205,14 @@ a { color: inherit; }
 
 /* ---------- small-text legibility pass II (focused) ---------- */
 
-/* Timber metadata — origin + rate read at a glance */
+/* Timber metadata — provenance kicker above, supporting rate below */
 .timber-tile__origin {
-  font-size: .8rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-  line-height: 1.4;
-  letter-spacing: -.003em;
+  font-size: .66rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  line-height: 1.3;
 }
 .timber-tile__rate {
   font-size: .8rem;
@@ -1219,7 +1220,8 @@ a { color: inherit; }
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   letter-spacing: -.002em;
-  margin-top: .25rem;
+  margin-top: .15rem;
+  line-height: 1.4;
 }
 
 /* Finish + Delivery descriptions — up from a whisper to quietly legible */

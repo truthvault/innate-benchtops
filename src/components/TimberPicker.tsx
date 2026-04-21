@@ -28,9 +28,9 @@ export function TimberPicker({ value, onChange }: Props) {
                 <img src={s.photo} alt="" loading="lazy" />
               </span>
               <span className="timber-tile__meta">
-                <span className="timber-tile__name">{s.name}</span>
                 <span className="timber-tile__origin">{s.origin}</span>
-                <span className="timber-tile__rate">up to {s.maxThicknessMm} mm thick</span>
+                <span className="timber-tile__name">{s.name}</span>
+                <span className="timber-tile__rate">Up to {s.maxThicknessMm} mm thick</span>
               </span>
               {on && (
                 <svg viewBox="0 0 16 16" width="14" height="14" className="timber-tile__check" aria-hidden>
