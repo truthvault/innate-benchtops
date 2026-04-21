@@ -45,14 +45,17 @@ export const defaultQuote = (): Quote => ({
 });
 
 export const quoteNumber = (seed: string) => {
-  const d = new Date();
-  const y = d.getFullYear().toString().slice(2);
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const base = 648;
+  const anchor = Date.UTC(2026, 3, 21); // 2026-04-21 — baseline for drift
+  const daysSince = Math.max(
+    0,
+    Math.floor((Date.now() - anchor) / 86_400_000),
+  );
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const n = (h % 900) + 100;
-  return `INT-${y}${m}${day}-${n}`;
+  const noise = h % 5;
+  const n = base + daysSince * 3 + noise;
+  return `INT-${n}`;
 };
 
 const b64url = {
