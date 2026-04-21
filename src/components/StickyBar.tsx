@@ -138,7 +138,7 @@ export function StickyBar({
                   className={`stickybar__finish-btn${isPickup ? " is-on" : ""}`}
                   onClick={pickPickup}
                 >
-                  Pickup
+                  Pick up
                 </button>
                 <button
                   type="button"
@@ -147,7 +147,7 @@ export function StickyBar({
                   className={`stickybar__finish-btn${isDelivered ? " is-on" : ""}`}
                   onClick={pickDelivered}
                 >
-                  Delivered
+                  Deliver to me
                 </button>
               </div>
               {isDelivered && (
