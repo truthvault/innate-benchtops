@@ -129,13 +129,6 @@ export default function App() {
           />
 
           <TimberPicker value={quote.species} onChange={setSpecies} />
-
-          <footer className="fineprint">
-            <p>
-              All prices include GST. Timber is milled and finished in Ōtautahi Christchurch.
-              Lead times shift with season and workshop queue — we'll confirm exactly when you quote.
-            </p>
-          </footer>
         </div>
       </main>
 
