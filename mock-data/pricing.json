@@ -1,14 +1,35 @@
 {
-  "thicknessFactors": {
-    "27": 0.8,
-    "40": 1.0,
-    "50": 1.22
-  },
-  "cutout": 150,
-  "rawDiscount": 0.10,
+  "pricePerLm": 26,
   "gstRate": 0.15,
-  "minJob": 450,
-  "leadTimeWeeks": 6,
+  "marginPct": 0.80,
+  "bufferPct": 0.02,
+  "wastagePct": 0.10,
+  "densityKgPerM3": 600,
+  "laminatorOverhangMm": 100,
+  "laminating": {
+    "perM3": 2100,
+    "collectionFee": 50,
+    "deliveryFee": 50
+  },
+  "finishing": {
+    "labourRate": 30,
+    "sandingHoursPerM2": 2,
+    "coatingHoursPerM2": 2,
+    "minHours": 1,
+    "oilCostPer10L": 800,
+    "oilCoverageM2PerL": 8
+  },
+  "cutoutPrice": 300,
+  "cutoutDefaults": { "widthMm": 400, "depthMm": 500 },
+  "perJobFixed": {
+    "panelRepairFund": 30,
+    "admin": 30
+  },
+  "leadTimeWeeks": {
+    "raw": 4,
+    "oiled": 6,
+    "withCutouts": 8
+  },
   "currency": "NZD",
   "locale": "en-NZ"
 }

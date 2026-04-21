@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { formatNZD } from "../pricing";
-import { LEAD_TIME_WEEKS } from "../species";
 
 interface Props {
   grand: number;
-  belowMinimum: boolean;
+  leadTimeWeeks: number;
   onRequest: () => void;
 }
 
-export function StickyBar({ grand, belowMinimum, onRequest }: Props) {
+export function StickyBar({ grand, leadTimeWeeks, onRequest }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
   const last = useRef(grand);
 
@@ -34,15 +33,13 @@ export function StickyBar({ grand, belowMinimum, onRequest }: Props) {
           <span className="stickybar__amount" aria-live="polite" data-dir={direction ?? undefined}>
             {formatNZD(grand)}
           </span>
-          <span className="stickybar__note">
-            incl GST{belowMinimum ? " · minimum job applied" : ""}
-          </span>
+          <span className="stickybar__note">incl GST</span>
         </div>
         <div className="stickybar__lead" aria-label="Lead time">
-          ~{LEAD_TIME_WEEKS} weeks
+          ~{leadTimeWeeks} weeks
         </div>
         <button type="button" className="btn-primary stickybar__cta" onClick={onRequest}>
-          Request quote
+          Share this quote
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

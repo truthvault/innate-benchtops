@@ -1,10 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
 import { priceLine, formatNZD } from "../pricing";
 import { findSpecies, MIN_THICKNESS_MM, type SpeciesId } from "../species";
 import {
-  DEFAULT_CUTOUT_DEPTH_MM,
-  DEFAULT_CUTOUT_WIDTH_MM,
+  defaultCutoutDims,
   newId,
 } from "../state";
 
@@ -114,7 +113,7 @@ function PanelRow({
           min={200}
           max={4800}
           step={10}
-          onChange={(n) => setNum("length", n)}
+          onCommit={(n) => setNum("length", n)}
         />
         <NumField
           label="Width"
@@ -123,7 +122,7 @@ function PanelRow({
           min={200}
           max={1200}
           step={10}
-          onChange={(n) => setNum("width", n)}
+          onCommit={(n) => setNum("width", n)}
         />
         <NumField
           label="Thickness"
@@ -132,7 +131,7 @@ function PanelRow({
           min={MIN_THICKNESS_MM}
           max={maxThickness}
           step={1}
-          onChange={(n) => setNum("thickness", n)}
+          onCommit={(n) => setNum("thickness", n)}
         />
         <NumField
           label="Qty"
@@ -140,16 +139,16 @@ function PanelRow({
           min={1}
           max={20}
           step={1}
-          onChange={(n) => setNum("quantity", n)}
+          onCommit={(n) => setNum("quantity", n)}
         />
       </div>
 
       <div className="panel-row__cutouts">
         <Stepper
-          label="Sink/cooktop cutouts"
+          label="Sink / cooktop cutouts"
           value={panel.cutouts.length}
           min={0}
-          max={4}
+          max={3}
           onChange={(n) => {
             const current = panel.cutouts.length;
             if (n > current) {
@@ -195,7 +194,6 @@ interface CutoutDetailProps {
 function CutoutDetail({
   index, total, cutout, panel, onChange, onRemove,
 }: CutoutDetailProps) {
-  // current edge-to-edge distances in mm
   const fromLeft = Math.round(cutout.pos * panel.length - cutout.widthMm / 2);
   const fromFront = Math.round(cutout.cross * panel.width - cutout.depthMm / 2);
 
@@ -204,7 +202,6 @@ function CutoutDetail({
 
   const setWidth = (w: number) => {
     const next = clamp(w, 50, maxW);
-    // keep "fromLeft" stable when resizing so the user's left-anchored placement doesn't jump
     const nextPos = clamp((fromLeft + next / 2) / panel.length, 0, 1);
     onChange({ widthMm: next, pos: nextPos });
   };
@@ -243,49 +240,15 @@ function CutoutDetail({
         </button>
       </div>
       <div className="cutout-item__grid">
-        <NumField
-          label="Width"
-          unit="mm"
-          value={cutout.widthMm}
-          min={50}
-          max={maxW}
-          step={10}
-          onChange={setWidth}
-        />
-        <NumField
-          label="Depth"
-          unit="mm"
-          value={cutout.depthMm}
-          min={50}
-          max={maxD}
-          step={10}
-          onChange={setDepth}
-        />
-        <NumField
-          label="From left"
-          unit="mm"
-          value={fromLeft}
-          min={0}
-          max={Math.max(0, panel.length - cutout.widthMm)}
-          step={5}
-          onChange={setFromLeft}
-        />
-        <NumField
-          label="From front"
-          unit="mm"
-          value={fromFront}
-          min={0}
-          max={Math.max(0, panel.width - cutout.depthMm)}
-          step={5}
-          onChange={setFromFront}
-        />
+        <NumField label="Width" unit="mm" value={cutout.widthMm} min={50} max={maxW} step={10} onCommit={setWidth} />
+        <NumField label="Depth" unit="mm" value={cutout.depthMm} min={50} max={maxD} step={10} onCommit={setDepth} />
+        <NumField label="From left" unit="mm" value={fromLeft} min={0} max={Math.max(0, panel.length - cutout.widthMm)} step={5} onCommit={setFromLeft} />
+        <NumField label="From front" unit="mm" value={fromFront} min={0} max={Math.max(0, panel.width - cutout.depthMm)} step={5} onCommit={setFromFront} />
       </div>
     </li>
   );
 }
 
-// Place a new cutout at the midpoint of the largest existing gap along the
-// length axis, so adding one doesn't shift any existing cutout.
 function addCutout(panel: Panel): Cutout[] {
   const sorted = panel.cutouts.map((c) => c.pos).sort((a, b) => a - b);
   const points = [0, ...sorted, 1];
@@ -298,7 +261,8 @@ function addCutout(panel: Panel): Cutout[] {
       bestMid = (points[i] + points[i + 1]) / 2;
     }
   }
-  const half = DEFAULT_CUTOUT_WIDTH_MM / 2 / panel.length;
+  const d = defaultCutoutDims();
+  const half = d.widthMm / 2 / panel.length;
   const pos = Math.max(half, Math.min(1 - half, bestMid));
   return [
     ...panel.cutouts,
@@ -306,11 +270,13 @@ function addCutout(panel: Panel): Cutout[] {
       id: newId(),
       pos,
       cross: 0.5,
-      widthMm: DEFAULT_CUTOUT_WIDTH_MM,
-      depthMm: DEFAULT_CUTOUT_DEPTH_MM,
+      widthMm: d.widthMm,
+      depthMm: d.depthMm,
     },
   ];
 }
+
+// ─── NumField: transient text during editing, commit on blur/Enter ────────
 
 function NumField({
   label,
@@ -319,7 +285,7 @@ function NumField({
   min,
   max,
   step = 1,
-  onChange,
+  onCommit,
 }: {
   label: string;
   unit?: string;
@@ -327,21 +293,52 @@ function NumField({
   min: number;
   max: number;
   step?: number;
-  onChange: (n: number) => void;
+  onCommit: (n: number) => void;
 }) {
+  const [text, setText] = useState(() => String(value));
+  const focusedRef = useRef(false);
+
+  // Only sync prop → input when the field is NOT focused.
+  useEffect(() => {
+    if (!focusedRef.current) setText(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const n = Number(text);
+    if (!Number.isFinite(n)) {
+      setText(String(value));
+      return;
+    }
+    const clamped = clamp(Math.round(n), min, max);
+    setText(String(clamped));
+    if (clamped !== value) onCommit(clamped);
+  };
+
   return (
     <label className="numfield">
       <span className="numfield__label">{label}{unit ? <em> ({unit})</em> : null}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
-        value={Number.isFinite(value) ? value : ""}
-        min={min}
-        max={max}
-        step={step}
+        pattern="[0-9]*"
+        value={text}
+        onFocus={() => { focusedRef.current = true; }}
         onChange={(e) => {
-          const n = Number(e.target.value);
-          if (Number.isFinite(n)) onChange(clamp(n, min, max));
+          const v = e.target.value;
+          // Allow empty string + digits while editing
+          if (/^[-]?\d{0,5}$/.test(v) || v === "") setText(v);
+        }}
+        onBlur={() => { focusedRef.current = false; commit(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur();
+          } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            e.preventDefault();
+            const delta = e.key === "ArrowUp" ? step : -step;
+            const next = clamp((Number(text) || value) + delta, min, max);
+            setText(String(next));
+            onCommit(next);
+          }
         }}
       />
     </label>

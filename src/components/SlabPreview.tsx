@@ -153,7 +153,7 @@ export function SlabPreview({
             <stop offset="100%" stopColor="#f5f3ef" stopOpacity="0.98" />
           </linearGradient>
           {boxes.map((b, i) => (
-            <clipPath key={i} id={`clip-${i}`}>
+            <clipPath key={b.panel.id} id={`clip-${i}`}>
               <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={6} ry={6} />
             </clipPath>
           ))}
@@ -166,10 +166,10 @@ export function SlabPreview({
               <g clipPath={`url(#clip-${i})`}>
                 <image
                   href={sp.photo}
-                  x={b.x - 40}
-                  y={b.y - 40}
-                  width={b.w + 80}
-                  height={b.h + 80}
+                  x={b.x}
+                  y={b.y}
+                  width={b.w}
+                  height={b.h}
                   preserveAspectRatio="xMidYMid slice"
                   filter={filterId}
                 />

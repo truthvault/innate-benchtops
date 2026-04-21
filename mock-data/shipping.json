@@ -1,0 +1,69 @@
+{
+  "chchMetroFlat": 150,
+  "chchSurroundsFlat": 220,
+  "upliftFactor": 1.2,
+  "refSmallKg": 20,
+  "refLargeKg": 130,
+  "basePackagingKg": 5,
+  "perPanelCratingKg": 3,
+  "workshop": { "lat": -43.5145, "lng": 172.5870 },
+  "metroPostcodes": [
+    "8011", "8013", "8014", "8022", "8023", "8024", "8025",
+    "8041", "8042", "8051", "8052", "8053", "8061", "8062"
+  ],
+  "surroundsPostcodes": [
+    "7610", "7612", "7614", "7630", "7632", "7635", "7440", "7447",
+    "7473", "7475", "7476", "7670", "7671", "7672", "7681",
+    "8081", "8082", "8083"
+  ],
+  "metroSuburbs": [
+    "christchurch cbd", "christchurch central",
+    "addington", "sydenham", "st albans", "linwood", "phillipstown",
+    "shirley", "fendalton", "merivale", "riccarton", "ilam", "bryndwr",
+    "papanui", "redwood", "mairehau", "bishopdale",
+    "hornby", "halswell", "wigram", "spreydon", "somerfield",
+    "hoon hay", "cashmere", "avonhead", "burnside", "casebrook",
+    "aranui", "burwood", "new brighton", "woolston", "opawa",
+    "beckenham", "strowan", "upper riccarton", "broomfield"
+  ],
+  "surroundsSuburbs": [
+    "rolleston", "rangiora", "kaiapoi", "oxford", "pegasus", "woodend",
+    "prebbleton", "lincoln", "tai tapu", "leeston",
+    "lyttelton", "sumner", "redcliffs", "mount pleasant", "clifton",
+    "governors bay", "diamond harbour",
+    "darfield", "west melton", "weedons", "amberley", "swannanoa"
+  ],
+  "destinations": {
+    "Cape Reinga":      { "small": 186, "large": 284, "island": "N", "group": "rural", "lat": -34.43, "lng": 172.68 },
+    "Dargaville":       { "small": 170, "large": 199, "island": "N", "group": "rural", "lat": -35.94, "lng": 173.87 },
+    "Whangarei":        { "small":  69, "large": 122, "island": "N", "group": "urban", "lat": -35.73, "lng": 174.32 },
+    "Warkworth":        { "small": 127, "large": 185, "island": "N", "group": "rural", "lat": -36.40, "lng": 174.67 },
+    "South Head":       { "small": 181, "large": 253, "island": "N", "group": "rural", "lat": -36.45, "lng": 174.35 },
+    "Auckland":         { "small":  78, "large": 130, "island": "N", "group": "urban", "lat": -36.85, "lng": 174.76 },
+    "Hamilton":         { "small":  67, "large": 121, "island": "N", "group": "urban", "lat": -37.79, "lng": 175.28 },
+    "Mount Maunganui":  { "small":  69, "large": 133, "island": "N", "group": "urban", "lat": -37.64, "lng": 176.18 },
+    "Te Araroa":        { "small": 184, "large": 269, "island": "N", "group": "rural", "lat": -37.63, "lng": 178.37 },
+    "Te Kuiti":         { "small": 114, "large": 173, "island": "N", "group": "rural", "lat": -38.34, "lng": 175.17 },
+    "Gisborne":         { "small":  70, "large": 134, "island": "N", "group": "urban", "lat": -38.66, "lng": 178.02 },
+    "Napier":           { "small":  72, "large": 143, "island": "N", "group": "urban", "lat": -39.49, "lng": 176.92 },
+    "Palmerston North": { "small":  87, "large": 146, "island": "N", "group": "urban", "lat": -40.35, "lng": 175.61 },
+    "Wellington":       { "small":  67, "large": 116, "island": "N", "group": "urban", "lat": -41.29, "lng": 174.78 },
+    "Nelson":           { "small":  65, "large": 106, "island": "S", "group": "urban", "lat": -41.27, "lng": 173.28 },
+    "Paparoa":          { "small": 153, "large": 213, "island": "S", "group": "rural", "lat": -42.45, "lng": 171.51 },
+    "Westport":         { "small": 113, "large": 169, "island": "S", "group": "rural", "lat": -41.75, "lng": 171.60 },
+    "Hanmer Springs":   { "small": 148, "large": 280, "island": "S", "group": "rural", "lat": -42.52, "lng": 172.83 },
+    "Akaroa":           { "small": 148, "large": 280, "island": "S", "group": "rural", "lat": -43.80, "lng": 172.97 },
+    "Ashburton":        { "small":  92, "large": 111, "island": "S", "group": "urban", "lat": -43.90, "lng": 171.75 },
+    "Methven":          { "small": 107, "large": 129, "island": "S", "group": "rural", "lat": -43.63, "lng": 171.65 },
+    "Timaru":           { "small":  63, "large":  89, "island": "S", "group": "urban", "lat": -44.40, "lng": 171.25 },
+    "Lake Tekapo":      { "small": 144, "large": 185, "island": "S", "group": "rural", "lat": -44.00, "lng": 170.48 },
+    "Haast":            { "small": 182, "large": 262, "island": "S", "group": "rural", "lat": -43.88, "lng": 169.04 },
+    "Wanaka":           { "small": 112, "large": 162, "island": "S", "group": "rural", "lat": -44.70, "lng": 169.13 },
+    "Queenstown":       { "small": 112, "large": 162, "island": "S", "group": "urban", "lat": -45.03, "lng": 168.66 },
+    "Te Anau":          { "small": 182, "large": 249, "island": "S", "group": "rural", "lat": -45.41, "lng": 167.72 },
+    "Dunedin":          { "small":  64, "large":  99, "island": "S", "group": "urban", "lat": -45.87, "lng": 170.50 },
+    "Millers Flat":     { "small": 137, "large": 190, "island": "S", "group": "rural", "lat": -45.69, "lng": 169.41 },
+    "Invercargill":     { "small":  65, "large": 101, "island": "S", "group": "urban", "lat": -46.41, "lng": 168.37 },
+    "Stewart Island":   { "small": 180, "large": 249, "island": "S", "group": "rural", "lat": -46.90, "lng": 168.13 }
+  }
+}

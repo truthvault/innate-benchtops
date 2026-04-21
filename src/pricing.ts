@@ -1,19 +1,13 @@
 import {
   CURRENCY,
-  CUTOUT,
   GST_RATE,
   LOCALE,
-  MIN_JOB,
-  RAW_DISCOUNT,
+  PRICING,
   findSpecies,
-  thicknessFactor,
 } from "./species";
-import type {
-  DeliveryId,
-  FinishId,
-  SpeciesId,
-  Thickness,
-} from "./species";
+import type { FinishId, SpeciesId, Thickness } from "./species";
+import type { ShippingMode } from "./shipping";
+import { shippingCost } from "./shipping";
 
 export interface Cutout {
   id: string;
@@ -41,12 +35,175 @@ export interface Quote {
   panels: Panel[];
   species: SpeciesId;
   finish: FinishId;
-  delivery: DeliveryId;
-  address: string;
+  shipping: ShippingMode;
   customer: { name: string; email: string; phone: string; notes: string };
 }
 
+export interface PanelBreakdown {
+  timber: number;
+  laminating: number;
+  sanding: number;
+  coating: number;
+  oil: number;
+  cutouts: number;
+  areaM2: number;
+  volumeM3: number;
+  weightKg: number;
+  /** Cost subtotal for this panel line, ex all fees/buffer/margin/GST */
+  subtotal: number;
+}
+
 export interface LineCost {
+  panel: Panel;
+  breakdown: PanelBreakdown;
+  /** Per-unit price incl GST (display) */
+  priceEach: number;
+  /** Total line price incl GST × quantity */
+  priceTotal: number;
+}
+
+export interface Totals {
+  lines: LineCost[];
+  jobSubtotalInclGst: number;
+  shipping: { cost: number; label: string };
+  totalExGst: number;
+  gst: number;
+  totalInclGst: number;
+  grand: number;
+  net: number;
+  deliveryWeight: number;
+  leadTimeWeeks: number;
+}
+
+// ─── Per-panel cost calculation ────────────────────────────────────────────
+
+function calcPanel(p: Panel, finish: FinishId, speciesId: SpeciesId): PanelBreakdown {
+  const sp = findSpecies(speciesId);
+  const cfg = PRICING;
+  const qty = Math.max(1, Math.floor(p.quantity) || 1);
+
+  const L_m = p.length / 1000;
+  const W_m = p.width / 1000;
+  const T_m = p.thickness / 1000;
+
+  const boardsNeeded = Math.ceil(p.width / sp.boardWidthMm);
+  const rawLengthMm = (p.length + cfg.laminatorOverhangMm) * (1 + cfg.wastagePct);
+  const lmEach = boardsNeeded * (rawLengthMm / 1000);
+  const timberEach = lmEach * cfg.pricePerLm;
+
+  const volEach = L_m * W_m * T_m;
+  const areaEach = L_m * W_m;
+  const lamMatEach = volEach * cfg.laminating.perM3;
+
+  let sandEach = 0;
+  let coatEach = 0;
+  let oilEach = 0;
+  if (finish === "oiled") {
+    const f = cfg.finishing;
+    const sandHrs = Math.max(f.minHours, areaEach * f.sandingHoursPerM2);
+    const coatHrs = Math.max(f.minHours, areaEach * f.coatingHoursPerM2);
+    sandEach = sandHrs * f.labourRate;
+    coatEach = coatHrs * f.labourRate;
+    const oilPerL = f.oilCostPer10L / 10;
+    const litres = areaEach / f.oilCoverageM2PerL;
+    oilEach = litres * oilPerL;
+  }
+
+  const cutoutEach = (p.cutouts ?? []).length * cfg.cutoutPrice;
+
+  const subtotalEach =
+    timberEach + lamMatEach + sandEach + coatEach + oilEach + cutoutEach;
+
+  return {
+    timber: timberEach * qty,
+    laminating: lamMatEach * qty,
+    sanding: sandEach * qty,
+    coating: coatEach * qty,
+    oil: oilEach * qty,
+    cutouts: cutoutEach * qty,
+    areaM2: areaEach * qty,
+    volumeM3: volEach * qty,
+    weightKg: volEach * sp.densityKgM3 * qty,
+    subtotal: subtotalEach * qty,
+  };
+}
+
+function applyMarkup(costSubtotal: number) {
+  const cfg = PRICING;
+  const withBuffer = costSubtotal * (1 + cfg.bufferPct);
+  const ex = withBuffer * (1 + cfg.marginPct);
+  const gst = ex * cfg.gstRate;
+  return { ex, gst, incl: ex + gst };
+}
+
+// ─── Job-level pricing ─────────────────────────────────────────────────────
+
+export function priceQuote(q: Quote): Totals {
+  const cfg = PRICING;
+
+  const perJobFixed =
+    cfg.laminating.collectionFee +
+    cfg.laminating.deliveryFee +
+    cfg.perJobFixed.panelRepairFund +
+    cfg.perJobFixed.admin;
+
+  const breakdowns = q.panels.map((p) => calcPanel(p, q.finish, q.species));
+  const totalUnits = q.panels.reduce(
+    (sum, p) => sum + Math.max(1, Math.floor(p.quantity) || 1),
+    0,
+  ) || 1;
+  const perUnitFixed = perJobFixed / totalUnits;
+
+  const lines: LineCost[] = q.panels.map((p, i) => {
+    const qty = Math.max(1, Math.floor(p.quantity) || 1);
+    const b = breakdowns[i];
+    const fixedShare = perUnitFixed * qty;
+    const panelCostSubtotal = b.subtotal + fixedShare;
+    const { incl } = applyMarkup(panelCostSubtotal);
+    return {
+      panel: p,
+      breakdown: b,
+      priceEach: incl / qty,
+      priceTotal: incl,
+    };
+  });
+
+  const jobSubtotalInclGst = lines.reduce((s, l) => s + l.priceTotal, 0);
+  const jobSubtotalExGst = jobSubtotalInclGst / (1 + cfg.gstRate);
+
+  const shipping = shippingCost(q.shipping, q.panels);
+
+  const totalInclGst = jobSubtotalInclGst + shipping.cost;
+  const totalExGst = jobSubtotalExGst + shipping.cost / (1 + cfg.gstRate);
+  const gst = totalInclGst - totalExGst;
+  const weight = breakdowns.reduce((s, b) => s + b.weightKg, 0);
+
+  return {
+    lines,
+    jobSubtotalInclGst,
+    shipping,
+    totalExGst,
+    gst,
+    totalInclGst,
+    grand: round2(totalInclGst),
+    net: round2(totalExGst),
+    deliveryWeight: weight,
+    leadTimeWeeks: leadTimeWeeks(q),
+  };
+}
+
+// ─── Lead time rules ───────────────────────────────────────────────────────
+
+export function leadTimeWeeks(q: Quote): number {
+  const cfg = PRICING.leadTimeWeeks;
+  const hasCutouts = q.panels.some((p) => (p.cutouts ?? []).length > 0);
+  if (hasCutouts) return cfg.withCutouts;
+  if (q.finish === "oiled") return cfg.oiled;
+  return cfg.raw;
+}
+
+// Used in old LineCost consumers — kept for ergonomic access
+export interface OldLineCost {
   area: number;
   weight: number;
   timber: number;
@@ -54,19 +211,27 @@ export interface LineCost {
   subtotal: number;
 }
 
-export interface Totals {
-  lines: LineCost[];
-  timber: number;
-  cutouts: number;
-  rawDiscount: number;
-  work: number;
-  delivery: number;
-  deliveryWeight: number;
-  grand: number;
-  net: number;
-  gst: number;
-  belowMinimum: boolean;
+export function priceLine(p: Panel, speciesId: SpeciesId): OldLineCost {
+  const b = calcPanel(p, "oiled", speciesId);
+  const perJobFixed =
+    PRICING.laminating.collectionFee +
+    PRICING.laminating.deliveryFee +
+    PRICING.perJobFixed.panelRepairFund +
+    PRICING.perJobFixed.admin;
+  const qty = Math.max(1, Math.floor(p.quantity) || 1);
+  const { incl } = applyMarkup(b.subtotal + perJobFixed);
+  return {
+    area: b.areaM2,
+    weight: b.weightKg,
+    timber: b.timber,
+    cutouts: b.cutouts,
+    subtotal: incl / qty, // show per-unit incl-GST, aligned to new model
+  };
 }
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const areaM2 = (p: Panel) =>
   (p.length / 1000) * (p.width / 1000) * p.quantity;
@@ -75,50 +240,6 @@ export const weightKg = (p: Panel, densityKgM3: number) =>
   (p.length / 1000) * (p.width / 1000) * (p.thickness / 1000) *
   densityKgM3 *
   p.quantity;
-
-export function priceLine(p: Panel, speciesId: SpeciesId): LineCost {
-  const species = findSpecies(speciesId);
-  const area = areaM2(p);
-  const weight = weightKg(p, species.densityKgM3);
-  const tf = thicknessFactor(p.thickness);
-  const timber = area * species.rateNZD * tf;
-  const cutouts = (p.cutouts?.length ?? 0) * CUTOUT;
-  return { area, weight, timber, cutouts, subtotal: timber + cutouts };
-}
-
-export function priceQuote(q: Quote): Totals {
-  const lines = q.panels.map((p) => priceLine(p, q.species));
-  const timber = sum(lines.map((l) => l.timber));
-  const cutouts = sum(lines.map((l) => l.cutouts));
-  const weight = sum(lines.map((l) => l.weight));
-
-  const workBeforeDiscount = timber + cutouts;
-  const rawDiscount = q.finish === "raw" ? workBeforeDiscount * RAW_DISCOUNT : 0;
-  const workRaw = workBeforeDiscount - rawDiscount;
-  const work = workRaw > 0 && workRaw < MIN_JOB ? MIN_JOB : workRaw;
-
-  const delivery = 0;
-  const grand = round2(work + delivery);
-  const net = round2(grand / (1 + GST_RATE));
-  const gst = round2(grand - net);
-
-  return {
-    lines,
-    timber,
-    cutouts,
-    rawDiscount,
-    work,
-    delivery,
-    deliveryWeight: weight,
-    grand,
-    net,
-    gst,
-    belowMinimum: workRaw > 0 && workRaw < MIN_JOB,
-  };
-}
-
-const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export const formatNZD = (n: number) =>
   new Intl.NumberFormat(LOCALE, {
@@ -132,3 +253,6 @@ export const formatNZDPrecise = (n: number) =>
     style: "currency",
     currency: CURRENCY,
   }).format(n);
+
+// Backwards-compat re-export for consumers still using this name
+export { GST_RATE };

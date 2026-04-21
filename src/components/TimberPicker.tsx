@@ -1,5 +1,4 @@
 import { SPECIES, type SpeciesId } from "../species";
-import { formatNZD } from "../pricing";
 
 interface Props {
   value: SpeciesId;
@@ -11,7 +10,7 @@ export function TimberPicker({ value, onChange }: Props) {
     <section className="timber-picker" aria-labelledby="timber-h">
       <header className="section-head">
         <h2 id="timber-h">Timber</h2>
-        <p className="section-sub">Three species, milled in Aotearoa.</p>
+        <p className="section-sub">Three native species, sustainably sourced.</p>
       </header>
       <div className="timber-picker__grid" role="radiogroup" aria-label="Timber species">
         {SPECIES.map((s) => {
@@ -31,7 +30,7 @@ export function TimberPicker({ value, onChange }: Props) {
               <span className="timber-tile__meta">
                 <span className="timber-tile__name">{s.name}</span>
                 <span className="timber-tile__origin">{s.origin}</span>
-                <span className="timber-tile__rate">from {formatNZD(s.rateNZD)}/m²</span>
+                <span className="timber-tile__rate">up to {s.maxThicknessMm} mm thick</span>
               </span>
               {on && (
                 <svg viewBox="0 0 16 16" width="14" height="14" className="timber-tile__check" aria-hidden>

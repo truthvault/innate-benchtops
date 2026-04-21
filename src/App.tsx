@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Cutout, Panel, Quote } from "./pricing";
 import { priceQuote } from "./pricing";
+import type { ShippingMode } from "./shipping";
 import {
   blankPanel,
   defaultQuote,
@@ -8,7 +9,7 @@ import {
   persist,
   quoteNumber,
 } from "./state";
-import { findSpecies, type DeliveryId, type FinishId, type SpeciesId } from "./species";
+import { findSpecies, type FinishId, type SpeciesId } from "./species";
 import { SlabPreview } from "./components/SlabPreview";
 import { PanelEditor } from "./components/PanelEditor";
 import { TimberPicker } from "./components/TimberPicker";
@@ -19,6 +20,7 @@ import { QuoteForm } from "./components/QuoteForm";
 
 export default function App() {
   const [quote, setQuote] = useState<Quote>(() => loadInitial());
+  const [address, setAddress] = useState("");
   const [freshId, setFreshId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -60,10 +62,8 @@ export default function App() {
     }), []);
   const setFinish = useCallback((finish: FinishId) =>
     setQuote((q) => ({ ...q, finish })), []);
-  const setDelivery = useCallback((delivery: DeliveryId) =>
-    setQuote((q) => ({ ...q, delivery })), []);
-  const setAddress = useCallback((address: string) =>
-    setQuote((q) => ({ ...q, address })), []);
+  const setShipping = useCallback((shipping: ShippingMode) =>
+    setQuote((q) => ({ ...q, shipping })), []);
   const setCustomer = useCallback((customer: Quote["customer"]) =>
     setQuote((q) => ({ ...q, customer })), []);
   const setCutout = useCallback(
@@ -88,6 +88,7 @@ export default function App() {
     const seed = Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
     setSession({ seed, quoteNo: quoteNumber(seed) });
     setQuote(defaultQuote());
+    setAddress("");
     window.location.hash = "";
   }, []);
 
@@ -133,9 +134,9 @@ export default function App() {
           <FinishToggle value={quote.finish} onChange={setFinish} />
 
           <DeliveryPicker
-            value={quote.delivery}
-            address={quote.address}
-            onChange={setDelivery}
+            value={quote.shipping}
+            address={address}
+            onChange={setShipping}
             onAddressChange={setAddress}
           />
 
@@ -150,7 +151,7 @@ export default function App() {
 
       <StickyBar
         grand={totals.grand}
-        belowMinimum={totals.belowMinimum}
+        leadTimeWeeks={totals.leadTimeWeeks}
         onRequest={() => setModalOpen(true)}
       />
 

@@ -1,8 +1,12 @@
-import { DEFAULT_THICKNESS_MM } from "./species";
-import type { DeliveryId, FinishId, SpeciesId, Thickness } from "./species";
+import {
+  DEFAULT_THICKNESS_MM,
+  PRICING,
+} from "./species";
+import type { FinishId, SpeciesId, Thickness } from "./species";
 import type { Cutout, Panel, Quote } from "./pricing";
+import type { ShippingMode } from "./shipping";
 
-export const STORAGE_KEY = "innate.benchtop.v2";
+export const STORAGE_KEY = "innate.benchtop.v3";
 
 let seq = 0;
 export const newId = () => {
@@ -11,6 +15,14 @@ export const newId = () => {
     .toString(36)
     .slice(2, 5)}`;
 };
+
+export const defaultCutoutDims = () => ({
+  widthMm: PRICING.cutoutDefaults.widthMm,
+  depthMm: PRICING.cutoutDefaults.depthMm,
+});
+
+export const DEFAULT_CUTOUT_WIDTH_MM = PRICING.cutoutDefaults.widthMm;
+export const DEFAULT_CUTOUT_DEPTH_MM = PRICING.cutoutDefaults.depthMm;
 
 export const blankPanel = (label = "Benchtop"): Panel => ({
   id: newId(),
@@ -22,12 +34,13 @@ export const blankPanel = (label = "Benchtop"): Panel => ({
   cutouts: [],
 });
 
+export const defaultShipping = (): ShippingMode => ({ kind: "pickup" });
+
 export const defaultQuote = (): Quote => ({
   panels: [blankPanel("Island bench")],
   species: "rimu" as SpeciesId,
   finish: "oiled" as FinishId,
-  delivery: "pickup" as DeliveryId,
-  address: "",
+  shipping: defaultShipping(),
   customer: { name: "", email: "", phone: "", notes: "" },
 });
 
@@ -59,34 +72,42 @@ const b64url = {
 export const encodeQuote = (q: Quote) => b64url.encode(JSON.stringify(q));
 
 type LegacyPanel = Omit<Partial<Panel>, "cutouts"> & {
-  cutouts?: number | Cutout[];
+  cutouts?: number | Array<Partial<Cutout>>;
   sinks?: number;
   cooktops?: number;
 };
 
-export const DEFAULT_CUTOUT_WIDTH_MM = 600;
-export const DEFAULT_CUTOUT_DEPTH_MM = 460;
+type LegacyQuote = Partial<Omit<Quote, "panels">> & {
+  panels?: LegacyPanel[];
+  // older prototypes stored these two fields
+  delivery?: string;
+  address?: string;
+};
+
+const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
 
 const buildCutouts = (count: number): Cutout[] => {
   if (count <= 0) return [];
+  const d = defaultCutoutDims();
   return Array.from({ length: count }, (_, i) => ({
     id: newId(),
     pos: (i + 0.5) / count,
     cross: 0.5,
-    widthMm: DEFAULT_CUTOUT_WIDTH_MM,
-    depthMm: DEFAULT_CUTOUT_DEPTH_MM,
+    widthMm: d.widthMm,
+    depthMm: d.depthMm,
   }));
 };
 
 const migratePanel = (p: LegacyPanel): Panel => {
   let cutouts: Cutout[];
   if (Array.isArray(p.cutouts)) {
+    const d = defaultCutoutDims();
     cutouts = p.cutouts.map((c) => ({
       id: c?.id ?? newId(),
       pos: clamp01(typeof c?.pos === "number" ? c.pos : 0.5),
       cross: clamp01(typeof c?.cross === "number" ? c.cross : 0.5),
-      widthMm: typeof c?.widthMm === "number" ? c.widthMm : DEFAULT_CUTOUT_WIDTH_MM,
-      depthMm: typeof c?.depthMm === "number" ? c.depthMm : DEFAULT_CUTOUT_DEPTH_MM,
+      widthMm: typeof c?.widthMm === "number" ? c.widthMm : d.widthMm,
+      depthMm: typeof c?.depthMm === "number" ? c.depthMm : d.depthMm,
     }));
   } else if (typeof p.cutouts === "number") {
     cutouts = buildCutouts(p.cutouts);
@@ -104,18 +125,29 @@ const migratePanel = (p: LegacyPanel): Panel => {
   };
 };
 
-const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+const migrateShipping = (raw: LegacyQuote): ShippingMode => {
+  if (raw.shipping && typeof raw.shipping === "object" && "kind" in raw.shipping) {
+    return raw.shipping as ShippingMode;
+  }
+  const legacy = raw.delivery;
+  if (legacy === "pickup") return { kind: "pickup" };
+  if (legacy === "nationwide") {
+    // Can't infer destination from free-text address without a match; default to pickup.
+    return { kind: "pickup" };
+  }
+  return defaultShipping();
+};
 
 export const decodeQuote = (s: string): Quote | null => {
   try {
-    const raw = JSON.parse(b64url.decode(s));
+    const raw = JSON.parse(b64url.decode(s)) as LegacyQuote;
     if (!raw || !Array.isArray(raw.panels)) return null;
-    const q = raw as Partial<Quote> & { panels: LegacyPanel[] };
     return {
       ...defaultQuote(),
-      ...q,
-      panels: q.panels.map(migratePanel),
-      customer: { ...defaultQuote().customer, ...(q.customer ?? {}) },
+      ...raw,
+      panels: raw.panels.map(migratePanel),
+      shipping: migrateShipping(raw),
+      customer: { ...defaultQuote().customer, ...(raw.customer ?? {}) },
     } as Quote;
   } catch {
     return null;
@@ -132,12 +164,13 @@ export const loadInitial = (): Quote => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const q = JSON.parse(raw) as Partial<Quote> & { panels?: LegacyPanel[] };
+      const q = JSON.parse(raw) as LegacyQuote;
       if (q && Array.isArray(q.panels)) {
         return {
           ...defaultQuote(),
           ...q,
           panels: q.panels.map(migratePanel),
+          shipping: migrateShipping(q),
           customer: { ...defaultQuote().customer, ...(q.customer ?? {}) },
         } as Quote;
       }
