@@ -5,6 +5,7 @@ import { findSpecies } from "../species";
 import { shippingLabel } from "../shipping";
 
 type SharePath = "self" | "workshop" | "other";
+type ContactMethod = "email" | "phone";
 type Stage = "choose" | "form" | "sending" | "success" | "error";
 
 interface Props {
@@ -23,21 +24,27 @@ const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 const phoneDigits = (s: string) => (s ?? "").replace(/\D/g, "");
 const isPhone = (s: string) => phoneDigits(s).length >= 7;
 
-const PATHS: { id: SharePath; title: string; sub: string }[] = [
-  {
-    id: "self",
-    title: "Email it to me",
-    sub: "Send this quote to your own inbox, with a link to reopen it later.",
-  },
+const PATHS: {
+  id: SharePath;
+  title: string;
+  sub: string;
+  primary?: boolean;
+}[] = [
   {
     id: "workshop",
-    title: "Send to workshop",
-    sub: "Start a conversation — a real person from the workshop will follow up.",
+    title: "Send to us",
+    sub: "Send this quote to Innate for a personal follow-up. You'll be copied in, and you can optionally CC a partner, designer, or builder too.",
+    primary: true,
+  },
+  {
+    id: "self",
+    title: "Email it to myself",
+    sub: "Just send the quote to my inbox, with a link to reopen it later.",
   },
   {
     id: "other",
-    title: "Send to someone else",
-    sub: "Share it with your partner, designer, or builder.",
+    title: "Forward to someone else",
+    sub: "Share it with a partner, designer, or builder.",
   },
 ];
 
@@ -46,13 +53,16 @@ export function QuoteForm({
 }: Props) {
   const quoteNo = quote.quoteNo;
   const [stage, setStage] = useState<Stage>("choose");
-  const [path, setPath] = useState<SharePath>("self");
+  const [path, setPath] = useState<SharePath>("workshop");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [recipientNote, setRecipientNote] = useState("");
+  // "Send to us" extras: loop in a partner/designer, tell us how to follow up.
+  const [additionalEmail, setAdditionalEmail] = useState("");
+  const [contactMethod, setContactMethod] = useState<ContactMethod>("email");
+  const [bestTimeToCall, setBestTimeToCall] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
-  const [copied, setCopied] = useState(false);
   // Honeypot: bots fill every visible input. We hide this one visually +
   // from assistive tech. Any non-empty value aborts the submit.
   const [honey, setHoney] = useState("");
@@ -66,13 +76,15 @@ export function QuoteForm({
     setPrevOpen(open);
     if (open) {
       setStage("choose");
-      setPath("self");
+      setPath("workshop");
       setRecipientName("");
       setRecipientEmail("");
       setRecipientNote("");
+      setAdditionalEmail("");
+      setContactMethod("email");
+      setBestTimeToCall("");
       setTouched(false);
       setErrorMsg(null);
-      setCopied(false);
       setHoney("");
     }
   }
@@ -100,10 +112,15 @@ export function QuoteForm({
   const phoneOk = isPhone(c.phone ?? "");
   const recipNameOk = recipientName.trim().length > 1;
   const recipEmailOk = isEmail(recipientEmail);
+  // Additional-email is always optional; if filled, must be a valid address.
+  const addEmailTrim = additionalEmail.trim();
+  const addEmailOk = addEmailTrim.length === 0 || isEmail(addEmailTrim);
+  const phoneRequiredForContact = path === "workshop" && contactMethod === "phone";
 
   const canSend = (() => {
     if (!nameOk || !emailOk) return false;
-    if (path === "workshop" && !phoneOk) return false;
+    if (phoneRequiredForContact && !phoneOk) return false;
+    if (path === "workshop" && !addEmailOk) return false;
     if (path === "other" && (!recipNameOk || !recipEmailOk)) return false;
     return true;
   })();
@@ -133,6 +150,13 @@ export function QuoteForm({
             email: c.email.trim(),
             phone: c.phone?.trim() || undefined,
             notes: c.notes?.trim() || undefined,
+            additionalEmail:
+              path === "workshop" && addEmailTrim ? addEmailTrim : undefined,
+            contactMethod: path === "workshop" ? contactMethod : undefined,
+            bestTimeToCall:
+              path === "workshop" && contactMethod === "phone"
+                ? bestTimeToCall.trim() || undefined
+                : undefined,
           },
           recipient:
             path === "other"
@@ -187,16 +211,6 @@ export function QuoteForm({
     }
   };
 
-  const copyShareLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* ignore */
-    }
-  };
-
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="quote-form-h">
       <button type="button" className="modal__scrim" aria-label="Close" onClick={onClose} />
@@ -205,7 +219,7 @@ export function QuoteForm({
         {stage === "choose" && (
           <>
             <header className="modal__head">
-              <h2 id="quote-form-h">Share this quote</h2>
+              <h2 id="quote-form-h">Here's your quote</h2>
               <button type="button" className="modal__close" aria-label="Close" onClick={onClose}>
                 <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
                   <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -220,27 +234,25 @@ export function QuoteForm({
               speciesLabel={sp.label ?? sp.name}
             />
             <div className="share-paths" role="list">
-              {PATHS.map((p) => (
-                <button
+              {PATHS.filter((p) => p.primary).map((p) => (
+                <SharePathCard
                   key={p.id}
-                  type="button"
-                  className="share-path"
+                  path={p}
                   onClick={() => { setPath(p.id); setStage("form"); }}
-                >
-                  <PathIcon id={p.id} />
-                  <span className="share-path__text">
-                    <span className="share-path__title">{p.title}</span>
-                    <span className="share-path__sub">{p.sub}</span>
-                  </span>
-                  <svg viewBox="0 0 16 16" width="12" height="12" className="share-path__arrow" aria-hidden>
-                    <path d="M5 3l5 5-5 5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                />
+              ))}
+              <TrustStrip />
+              <div className="share-paths__divider" aria-hidden>
+                <span>Other ways to share</span>
+              </div>
+              {PATHS.filter((p) => !p.primary).map((p) => (
+                <SharePathCard
+                  key={p.id}
+                  path={p}
+                  onClick={() => { setPath(p.id); setStage("form"); }}
+                />
               ))}
             </div>
-            <p className="share-reassure">
-              No payment taken. We'll email this quote and may follow up to help.
-            </p>
           </>
         )}
 
@@ -301,7 +313,10 @@ export function QuoteForm({
                 />
               </label>
               <label className="field">
-                <span>Your email</span>
+                <span>
+                  Your email
+                  {path === "workshop" ? <em> (we'll copy you in)</em> : null}
+                </span>
                 <input
                   type="email"
                   value={c.email}
@@ -311,21 +326,88 @@ export function QuoteForm({
                   maxLength={200}
                 />
               </label>
-              <label className="field">
-                <span>
-                  Phone
-                  {path === "self" || path === "other" ? <em> (optional)</em> : null}
-                </span>
-                <input
-                  type="tel"
-                  value={c.phone}
-                  onChange={(e) => onCustomerPatch({ phone: e.target.value })}
-                  aria-invalid={touched && path === "workshop" && !phoneOk}
-                  autoComplete="tel"
-                  inputMode="tel"
-                  maxLength={30}
-                />
-              </label>
+              {path === "workshop" && (
+                <label className="field">
+                  <span>
+                    Also CC <em>(optional — partner, designer, builder…)</em>
+                  </span>
+                  <input
+                    type="email"
+                    value={additionalEmail}
+                    onChange={(e) => setAdditionalEmail(e.target.value)}
+                    aria-invalid={touched && !addEmailOk}
+                    autoComplete="email"
+                    maxLength={200}
+                    placeholder="name@example.com"
+                  />
+                </label>
+              )}
+
+              {path === "workshop" ? (
+                <fieldset className="preference-group field--wide">
+                  <legend>How should we follow up?</legend>
+                  <div className="contact-method" role="radiogroup" aria-label="Preferred contact method">
+                    <label className={`contact-method__opt${contactMethod === "email" ? " is-on" : ""}`}>
+                      <input
+                        type="radio"
+                        name="contact-method"
+                        value="email"
+                        checked={contactMethod === "email"}
+                        onChange={() => setContactMethod("email")}
+                      />
+                      <span>Email me back</span>
+                    </label>
+                    <label className={`contact-method__opt${contactMethod === "phone" ? " is-on" : ""}`}>
+                      <input
+                        type="radio"
+                        name="contact-method"
+                        value="phone"
+                        checked={contactMethod === "phone"}
+                        onChange={() => setContactMethod("phone")}
+                      />
+                      <span>Give me a call</span>
+                    </label>
+                  </div>
+                  {contactMethod === "phone" && (
+                    <div className="preference-group__details">
+                      <label className="field">
+                        <span>Phone</span>
+                        <input
+                          type="tel"
+                          value={c.phone}
+                          onChange={(e) => onCustomerPatch({ phone: e.target.value })}
+                          aria-invalid={touched && phoneRequiredForContact && !phoneOk}
+                          autoComplete="tel"
+                          inputMode="tel"
+                          maxLength={30}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Best time to call <em>(optional)</em></span>
+                        <input
+                          type="text"
+                          value={bestTimeToCall}
+                          onChange={(e) => setBestTimeToCall(e.target.value)}
+                          placeholder="e.g. weekdays after 5pm, or Saturday morning"
+                          maxLength={200}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </fieldset>
+              ) : (
+                <label className="field">
+                  <span>Phone <em>(optional)</em></span>
+                  <input
+                    type="tel"
+                    value={c.phone}
+                    onChange={(e) => onCustomerPatch({ phone: e.target.value })}
+                    autoComplete="tel"
+                    inputMode="tel"
+                    maxLength={30}
+                  />
+                </label>
+              )}
 
               {path === "other" && (
                 <>
@@ -376,8 +458,33 @@ export function QuoteForm({
 
               {path === "other" && (
                 <p className="share-disclose">
-                  We'll also send a copy to the workshop for record-keeping — they won't contact you unless you ask.
+                  We'll also send a copy to the workshop for record-keeping — we won't contact you unless you ask.
                 </p>
+              )}
+
+              {path === "workshop" && (
+                <div className="trust-strip trust-strip--form" role="note">
+                  <svg className="trust-strip__icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden>
+                    <path
+                      d="M10 1.8 3 4.4v4.8c0 4 2.8 7.4 7 8.8 4.2-1.4 7-4.8 7-8.8V4.4L10 1.8z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.3"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M6.8 10.2l2.3 2.3 4.1-4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <p>
+                    <strong>This is not an order.</strong> No payment is taken. We'll confirm every detail with you before anything is made.
+                  </p>
+                </div>
               )}
 
               <div className="quote-form__actions">
@@ -385,7 +492,11 @@ export function QuoteForm({
                   Back
                 </button>
                 <button type="submit" className="btn-primary" disabled={!canSend || stage === "sending"}>
-                  {stage === "sending" ? "Sending…" : "Send quote"}
+                  {stage === "sending"
+                    ? "Sending…"
+                    : path === "workshop"
+                      ? "Send it to us"
+                      : "Send quote"}
                 </button>
               </div>
 
@@ -393,7 +504,8 @@ export function QuoteForm({
                 <p className="quote-form__err" role="alert">
                   {!nameOk && "Your name is required. "}
                   {!emailOk && "A valid email is required. "}
-                  {path === "workshop" && !phoneOk && "A valid phone number is required. "}
+                  {phoneRequiredForContact && !phoneOk && "A phone number is required when you've asked for a call. "}
+                  {path === "workshop" && !addEmailOk && "The extra email address doesn't look valid. "}
                   {path === "other" && !recipNameOk && "Recipient name is required. "}
                   {path === "other" && !recipEmailOk && "Recipient email is required."}
                 </p>
@@ -404,10 +516,6 @@ export function QuoteForm({
                   {errorMsg}. <button type="button" className="btn-ghost" onClick={submit}>Try again</button>
                 </p>
               )}
-
-              <p className="share-reassure share-reassure--form">
-                No payment taken. We'll email this quote and may follow up to help.
-              </p>
             </form>
           </>
         )}
@@ -416,38 +524,61 @@ export function QuoteForm({
         {stage === "success" && (
           <div className="quote-success">
             <div className="quote-success__check" aria-hidden>
-              <svg viewBox="0 0 32 32" width="40" height="40">
-                <circle cx="16" cy="16" r="14" fill="#163832" />
-                <path d="M9 16.5l4.5 4.5L23 11" stroke="#f3f0ee" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <svg viewBox="0 0 40 40" width="38" height="38">
+                <circle cx="20" cy="20" r="18.4" fill="none" stroke="#163832" strokeWidth="1.3" />
+                <path
+                  d="M12.5 20.7l5 5 10.5-11.4"
+                  stroke="#163832"
+                  strokeWidth="1.8"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
-            <h2>
-              {path === "self" && "Quote sent"}
-              {path === "workshop" && "Quote sent to the workshop"}
-              {path === "other" && `Quote sent to ${recipientName.split(" ")[0] || "them"}`}
+            <h2 className="quote-success__title">
+              {path === "self" && "Quote sent to your inbox"}
+              {path === "workshop" && "We've got your quote"}
+              {path === "other" && `Sent to ${recipientName.split(" ")[0] || "them"}`}
             </h2>
-            <p>
-              {path === "self" && "Check your inbox for this quote and a link to reopen it."}
-              {path === "workshop" && "Someone from the workshop will be in touch soon to talk through details."}
-              {path === "other" && "They'll receive the full quote and a link to explore it."}
+            <p className="quote-success__ref">Quote {quoteNo}</p>
+            <p className="quote-success__body">
+              {path === "self" &&
+                "Check your email — the link reopens this configurator so you can tweak dimensions or delivery any time."}
+              {path === "workshop" && (
+                <>
+                  {addEmailTrim
+                    ? `A copy's in your inbox and with ${addEmailTrim}. `
+                    : "A copy's in your inbox. "}
+                  {contactMethod === "phone"
+                    ? bestTimeToCall.trim()
+                      ? `We'll give you a call to talk it through — ${bestTimeToCall.trim()}.`
+                      : "We'll give you a call to talk it through."
+                    : "We'll reply by email to talk it through."}
+                </>
+              )}
+              {path === "other" &&
+                "They'll get the full quote and a link to open and explore it. A copy's with us too, so we can pick things up if they ask."}
             </p>
-            <p className="quote-success__amt">
-              {formatNZD(totals.grand)} incl GST · ~{totals.leadTimeWeeks} weeks
-            </p>
-
-            <div className="quote-success__sharebox">
-              <code className="quote-success__url">{shareUrl}</code>
-              <button type="button" className="btn-ghost" onClick={copyShareLink}>
-                {copied ? "Copied" : "Copy link"}
-              </button>
-            </div>
-
+            {path === "workshop" && (
+              <p className="quote-success__note">
+                This isn't an order. We'll confirm every detail with you before anything is made.
+              </p>
+            )}
             <div className="quote-success__actions">
-              <button type="button" className="btn-ghost" onClick={() => window.print()}>
-                Print quote
-              </button>
-              <button type="button" className="btn-primary" onClick={() => { onReset(); onClose(); }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => { onReset(); onClose(); }}
+              >
                 Start a new quote
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onClose}
+              >
+                Thanks
               </button>
             </div>
           </div>
@@ -468,19 +599,79 @@ function QuoteSummary({
   deliveryText: string;
   speciesLabel: string;
 }) {
+  const shippingSuffix =
+    totals.shipping.cost > 0 ? ` · ${formatNZD(totals.shipping.cost)}` : "";
   return (
-    <div className="quote-summary">
-      <div className="quote-summary__no">Quote {quoteNo}</div>
-      <dl>
+    <section className="quote-summary" aria-label="Quote summary">
+      <header className="quote-summary__head">
+        <span className="quote-summary__eyebrow">Quote summary</span>
+        <span className="quote-summary__no">#{quoteNo}</span>
+      </header>
+      <dl className="quote-summary__rows">
         <div><dt>Timber</dt><dd>{speciesLabel}</dd></div>
         <div><dt>Finish</dt><dd>{quote.finish === "oiled" ? "Sanded & oiled" : "Raw, unsanded"}</dd></div>
-        <div><dt>Panels</dt><dd>{quote.panels.length} ({panelSummary(quote)})</dd></div>
-        <div><dt>Delivery</dt><dd>{deliveryText}{totals.shipping.cost > 0 ? ` · ${formatNZD(totals.shipping.cost)}` : ""}</dd></div>
-        <div><dt>Lead time</dt><dd>~{totals.leadTimeWeeks} weeks</dd></div>
-        <div className="quote-summary__total">
-          <dt>Total incl GST</dt><dd>{formatNZD(totals.grand)}</dd>
-        </div>
+        <div><dt>Panels</dt><dd>{quote.panels.length} · {panelSummary(quote)}</dd></div>
+        <div><dt>Delivery</dt><dd>{deliveryText}{shippingSuffix}</dd></div>
       </dl>
+      <div className="quote-summary__total">
+        <div className="quote-summary__total-label">Total incl GST</div>
+        <div className="quote-summary__total-amt">{formatNZD(totals.grand)}</div>
+        <div className="quote-summary__lead">Ready in ~{totals.leadTimeWeeks} weeks</div>
+      </div>
+    </section>
+  );
+}
+
+function SharePathCard({
+  path,
+  onClick,
+}: {
+  path: { id: SharePath; title: string; sub: string; primary?: boolean };
+  onClick: () => void;
+}) {
+  const cls =
+    "share-path" +
+    (path.primary ? " share-path--primary" : " share-path--secondary");
+  return (
+    <button type="button" className={cls} onClick={onClick}>
+      <PathIcon id={path.id} />
+      <span className="share-path__text">
+        {path.primary && (
+          <span className="share-path__eyebrow">The direct line</span>
+        )}
+        <span className="share-path__title">{path.title}</span>
+        <span className="share-path__sub">{path.sub}</span>
+      </span>
+      <svg viewBox="0 0 16 16" width="12" height="12" className="share-path__arrow" aria-hidden>
+        <path d="M5 3l5 5-5 5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+function TrustStrip() {
+  return (
+    <div className="trust-strip" role="note">
+      <svg className="trust-strip__icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden>
+        <path
+          d="M10 1.8 3 4.4v4.8c0 4 2.8 7.4 7 8.8 4.2-1.4 7-4.8 7-8.8V4.4L10 1.8z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M6.8 10.2l2.3 2.3 4.1-4.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <p>
+        <strong>This is not an order.</strong> No payment is taken. We'll confirm every detail with you before anything is made.
+      </p>
     </div>
   );
 }
@@ -495,10 +686,17 @@ function PathIcon({ id }: { id: SharePath }) {
     );
   }
   if (id === "workshop") {
+    // A minimal timber slab on steel legs — the product itself, drawn at
+    // icon weight. Reads as a table at thumbnail size without feeling
+    // literal or logo-like.
     return (
       <svg className="share-path__icon" viewBox="0 0 20 20" width="22" height="22" aria-hidden>
-        <path d="M3 9l7-5 7 5v7H3V9z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-        <path d="M8 16v-4h4v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+        <rect
+          x="2.6" y="6.8" width="14.8" height="2.2" rx=".5"
+          fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round"
+        />
+        <path d="M5.4 9v6.4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+        <path d="M14.6 9v6.4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
       </svg>
     );
   }

@@ -5,12 +5,19 @@ import { Resend } from "resend";
 //       pulling the whole app into the function) ─────────────────────────
 
 type SharePath = "self" | "workshop" | "other";
+type ContactMethod = "email" | "phone";
 
 interface Customer {
   name: string;
   email: string;
   phone?: string;
   notes?: string;
+  /** Optional CC on the "Send to us" flow — partner, designer, builder, etc. */
+  additionalEmail?: string;
+  /** "Send to us" only — how the customer prefers we follow up. */
+  contactMethod?: ContactMethod;
+  /** "Send to us" only, and only relevant when contactMethod === "phone". */
+  bestTimeToCall?: string;
 }
 
 interface Recipient {
@@ -90,6 +97,7 @@ const LIMITS = {
   species: 80,
   shippingLabel: 120,
   shareUrl: 500,
+  bestTimeToCall: 200,
 };
 
 function tooLong(s: string | undefined, max: number): boolean {
@@ -111,8 +119,26 @@ function validate(payload: SendQuotePayload): string | null {
   if (!isEmail(payload.customer?.email ?? "")) return "Valid email required";
   if (tooLong(payload.customer.email, LIMITS.email)) return "Email too long";
 
-  if (payload.path === "workshop" && !isPhone(payload.customer.phone ?? "")) {
-    return "Valid phone number required";
+  if (payload.path === "workshop") {
+    const method = payload.customer.contactMethod;
+    if (method && method !== "email" && method !== "phone") {
+      return "Invalid contact method";
+    }
+    if (method === "phone" && !isPhone(payload.customer.phone ?? "")) {
+      return "A phone number is required when you've asked for a call";
+    }
+    if (
+      payload.customer.additionalEmail &&
+      !isEmail(payload.customer.additionalEmail)
+    ) {
+      return "Additional email is not valid";
+    }
+    if (tooLong(payload.customer.additionalEmail, LIMITS.email)) {
+      return "Additional email too long";
+    }
+    if (tooLong(payload.customer.bestTimeToCall, LIMITS.bestTimeToCall)) {
+      return "Best-time note too long";
+    }
   }
   if (tooLong(payload.customer.phone, LIMITS.phone)) return "Phone too long";
   if (tooLong(payload.customer.notes, LIMITS.notes)) return "Notes too long";
@@ -187,13 +213,21 @@ function textBody(payload: SendQuotePayload): string {
       "",
     );
   } else {
+    const prefers =
+      customer.contactMethod === "phone"
+        ? "PREFERS A CALL"
+        : customer.contactMethod === "email"
+          ? "PREFERS EMAIL"
+          : "";
     lines.push(
       `New benchtop lead from ${customer.name}.`,
+      prefers ? `>> ${prefers}${customer.bestTimeToCall ? ` · best time: ${customer.bestTimeToCall}` : ""}` : "",
       "",
       `Customer details:`,
       `  Name: ${customer.name}`,
       `  Email: ${customer.email}`,
       customer.phone ? `  Phone: ${customer.phone}` : "",
+      customer.additionalEmail ? `  CC: ${customer.additionalEmail}` : "",
       "",
       customer.notes ? `Notes from customer:\n"${customer.notes}"\n` : "",
       `Interactive quote: ${shareUrl}`,
@@ -240,11 +274,29 @@ function htmlBody(payload: SendQuotePayload): string {
           : "")
       : path === "self"
         ? `<p>Hi ${esc(customer.name.split(" ")[0] || "there")},</p><p>Here's your benchtop quote from Innate Furniture. The link below reopens the interactive configurator — adjust dimensions or delivery, and the price updates live.</p>`
-        : `<p>New benchtop lead from <strong>${esc(customer.name)}</strong>.</p>` +
-          `<p style="color:#14141399;margin:4px 0">${esc(customer.email)}${customer.phone ? ` · ${esc(customer.phone)}` : ""}</p>` +
-          (customer.notes
-            ? `<blockquote style="border-left:3px solid #163832;margin:12px 0;padding:6px 12px;color:#14141399;font-style:italic">${esc(customer.notes)}</blockquote>`
-            : "");
+        : (() => {
+            const prefers =
+              customer.contactMethod === "phone"
+                ? `<div style="display:inline-block;padding:4px 10px;border-radius:999px;background:#163832;color:#f3f0ee;font-size:12px;font-weight:600;letter-spacing:.02em">Prefers a call${customer.bestTimeToCall ? ` · ${esc(customer.bestTimeToCall)}` : ""}</div>`
+                : customer.contactMethod === "email"
+                  ? `<div style="display:inline-block;padding:4px 10px;border-radius:999px;background:#163832;color:#f3f0ee;font-size:12px;font-weight:600;letter-spacing:.02em">Prefers email reply</div>`
+                  : "";
+            const contactLine = [
+              esc(customer.email),
+              customer.phone ? esc(customer.phone) : "",
+              customer.additionalEmail ? `CC: ${esc(customer.additionalEmail)}` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              `<p>New benchtop lead from <strong>${esc(customer.name)}</strong>.</p>` +
+              (prefers ? `<p style="margin:8px 0">${prefers}</p>` : "") +
+              `<p style="color:#14141399;margin:4px 0">${contactLine}</p>` +
+              (customer.notes
+                ? `<blockquote style="border-left:3px solid #163832;margin:12px 0;padding:6px 12px;color:#14141399;font-style:italic">${esc(customer.notes)}</blockquote>`
+                : "")
+            );
+          })();
 
   return `<!doctype html>
 <html>
@@ -381,9 +433,20 @@ export default async function handler(
           ? innate
           : payload.recipient!.email;
 
+    // On "Send to us", copy the customer (and optional extra address) so
+    // they have the quote in their own inbox and can keep the thread alive.
+    const cc =
+      payload.path === "workshop"
+        ? [
+            payload.customer.email,
+            payload.customer.additionalEmail,
+          ].filter((v): v is string => !!v && v !== innate)
+        : undefined;
+
     await resend.emails.send({
       from,
       to: [primaryTo],
+      cc,
       replyTo: payload.path === "other" ? payload.customer.email : innate,
       subject: subjectLine(payload),
       text,
