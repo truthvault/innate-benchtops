@@ -252,15 +252,17 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_ADDRESS;
-  const innate = process.env.INNATE_INBOX ?? "hello@innatefurniture.co.nz";
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const fromName = process.env.RESEND_FROM_NAME ?? "Innate Furniture";
+  const innate = process.env.INNATE_EMAIL ?? "hello@innatefurniture.co.nz";
 
-  if (!apiKey || !from) {
+  if (!apiKey || !fromEmail) {
     return new Response(
       JSON.stringify({ ok: false, error: "Email service not configured" }),
       { status: 503, headers: { "content-type": "application/json" } },
     );
   }
+  const from = `${fromName} <${fromEmail}>`;
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
