@@ -27,6 +27,26 @@ export const SHIPPING = shippingJson as {
   globalFreightMultiplier: number;
   refSmallKg: number;
   refLargeKg: number;
+  /**
+   * Past refLargeKg the freight curve steepens: slope becomes
+   * baseSlope × heavySlopeMultiplier, and a flat heavyHandlingFee is
+   * added. Reflects the carrier step-change from parcel to pallet /
+   * truck freight for heavy jobs.
+   */
+  heavySlopeMultiplier: number;
+  heavyHandlingFee: number;
+  /**
+   * Any panel longer than overlengthThresholdMm triggers a one-off
+   * overlengthSurcharge on the job. NZ carriers typically charge this
+   * for items beyond ~2.8 m.
+   */
+  overlengthThresholdMm: number;
+  overlengthSurcharge: number;
+  /**
+   * Rural-grouped destinations carry an extra multiplier on top of
+   * their per-destination anchors, stacked before upliftFactor.
+   */
+  ruralSurcharge: number;
   basePackagingKg: number;
   perPanelCratingKg: number;
   workshop: { lat: number; lng: number };
@@ -96,12 +116,40 @@ export function jobWeightKg(panels: Panel[]): number {
   );
 }
 
-function nationwideForDestination(destination: string, kg: number): number {
+function nationwideForDestination(
+  destination: string,
+  kg: number,
+  panels: Panel[],
+): number {
   const d = SHIPPING.destinations[destination];
   if (!d) return 0;
   const { refSmallKg: s, refLargeKg: l } = SHIPPING;
-  const slope = (d.large - d.small) / (l - s);
-  const raw = kg <= s ? d.small : d.small + (kg - s) * slope;
+  const baseSlope = (d.large - d.small) / (l - s);
+
+  // Base weight curve: linear between the small and large anchors; past
+  // the large anchor the slope steepens (heavySlopeMultiplier) and a
+  // flat pallet-handling fee is added to reflect the carrier jump from
+  // parcel to pallet freight.
+  let raw: number;
+  if (kg <= s) {
+    raw = d.small;
+  } else if (kg <= l) {
+    raw = d.small + (kg - s) * baseSlope;
+  } else {
+    const excess = kg - l;
+    raw = d.large + excess * baseSlope * SHIPPING.heavySlopeMultiplier;
+    raw += SHIPPING.heavyHandlingFee;
+  }
+
+  // Any panel longer than the threshold is an overlength item for NZ
+  // carriers and attracts a one-off surcharge on the job.
+  if (panels.some((p) => p.length > SHIPPING.overlengthThresholdMm)) {
+    raw += SHIPPING.overlengthSurcharge;
+  }
+
+  // Rural destinations carry a freight premium on top of their anchors.
+  if (d.group === "rural") raw *= SHIPPING.ruralSurcharge;
+
   const uplifted = raw * SHIPPING.upliftFactor;
   return Math.ceil(uplifted / 5) * 5;
 }
@@ -291,7 +339,7 @@ export function shippingCost(
         return { cost: 0, label: "Nationwide — select a destination" };
       }
       const kg = jobWeightKg(panels);
-      const base = nationwideForDestination(mode.destination, kg);
+      const base = nationwideForDestination(mode.destination, kg, panels);
       return {
         cost: applyGlobalUplift(base),
         label: `Nationwide — ${mode.destination}`,
