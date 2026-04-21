@@ -571,8 +571,8 @@ a { color: inherit; }
 }
 .stickybar__lead {
   margin-left: auto;
-  font-size: .82rem; color: var(--ink-soft);
-  padding: .35rem .7rem;
+  font-size: .78rem; color: var(--ink-soft);
+  padding: .35rem .75rem;
   border: 1px solid var(--stone-200);
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, .6);
@@ -1448,16 +1448,33 @@ a { color: inherit; }
 .stickybar__price--btn:hover { background: var(--stone-100); }
 .stickybar__price--btn:focus-visible { outline: 2px solid var(--forest); outline-offset: 2px; }
 
+.stickybar__breakdown-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  font-size: .7rem;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: var(--forest);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  margin-top: .05rem;
+  transition: color .12s var(--ease);
+}
+.stickybar__price--btn:hover .stickybar__breakdown-link {
+  color: var(--forest-ink);
+  text-decoration-style: solid;
+}
+
 .stickybar__chevron {
-  position: absolute;
-  right: .15rem; bottom: .55rem;
-  color: var(--ink-faint);
-  transition: transform .18s var(--ease), color .12s var(--ease);
+  color: currentColor;
+  transition: transform .18s var(--ease);
 }
 .stickybar__price--btn.is-expanded .stickybar__chevron {
   transform: rotate(180deg);
 }
-.stickybar__price--btn:hover .stickybar__chevron { color: var(--forest); }
 
 .stickybar__breakdown {
   position: fixed;
@@ -1537,6 +1554,26 @@ a { color: inherit; }
   color: var(--ink-soft);
   margin-left: .3rem;
 }
+
+/* ---------- sticky bar labeled groups (Finish / Delivery chips) ---------- */
+
+.stickybar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+}
+.stickybar__group-label {
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* The Delivery group allows its inner wrapper to grow with the address input */
+.stickybar__group:has(.stickybar__delivery) { flex: 1 1 260px; min-width: 0; }
 
 /* ---------- sticky bar inline controls (finish + delivery) ---------- */
 

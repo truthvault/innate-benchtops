@@ -102,62 +102,68 @@ export function StickyBar({
       <div className="stickybar" role="region" aria-label="Quote total">
         <div className="stickybar__inner">
           {/* Finish */}
-          <div className="stickybar__finish" role="radiogroup" aria-label="Finish">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={finish === "oiled"}
-              className={`stickybar__finish-btn${finish === "oiled" ? " is-on" : ""}`}
-              onClick={() => onFinishChange("oiled")}
-            >
-              Oiled
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={finish === "raw"}
-              className={`stickybar__finish-btn${finish === "raw" ? " is-on" : ""}`}
-              onClick={() => onFinishChange("raw")}
-            >
-              Raw
-            </button>
+          <div className="stickybar__group">
+            <span className="stickybar__group-label">Finish</span>
+            <div className="stickybar__finish" role="radiogroup" aria-label="Finish">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={finish === "oiled"}
+                className={`stickybar__finish-btn${finish === "oiled" ? " is-on" : ""}`}
+                onClick={() => onFinishChange("oiled")}
+              >
+                Oiled
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={finish === "raw"}
+                className={`stickybar__finish-btn${finish === "raw" ? " is-on" : ""}`}
+                onClick={() => onFinishChange("raw")}
+              >
+                Raw
+              </button>
+            </div>
           </div>
 
           {/* Delivery: Pickup / Delivered segmented + address input */}
-          <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
-            <div className="stickybar__finish" role="radiogroup" aria-label="Delivery method">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={isPickup}
-                className={`stickybar__finish-btn${isPickup ? " is-on" : ""}`}
-                onClick={pickPickup}
-              >
-                Pickup
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={isDelivered}
-                className={`stickybar__finish-btn${isDelivered ? " is-on" : ""}`}
-                onClick={pickDelivered}
-              >
-                Delivered
-              </button>
+          <div className="stickybar__group">
+            <span className="stickybar__group-label">Delivery</span>
+            <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
+              <div className="stickybar__finish" role="radiogroup" aria-label="Delivery method">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={isPickup}
+                  className={`stickybar__finish-btn${isPickup ? " is-on" : ""}`}
+                  onClick={pickPickup}
+                >
+                  Pickup
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={isDelivered}
+                  className={`stickybar__finish-btn${isDelivered ? " is-on" : ""}`}
+                  onClick={pickDelivered}
+                >
+                  Delivered
+                </button>
+              </div>
+              {isDelivered && (
+                <AddressSearch
+                  value={shippingMode}
+                  shippingCost={totals.shipping.cost}
+                  shippingLabel={totals.shipping.label}
+                  onChange={onShippingChange}
+                  autoFocus
+                />
+              )}
             </div>
-            {isDelivered && (
-              <AddressSearch
-                value={shippingMode}
-                shippingCost={totals.shipping.cost}
-                shippingLabel={totals.shipping.label}
-                onChange={onShippingChange}
-                autoFocus
-              />
-            )}
           </div>
 
           <div className="stickybar__lead" aria-label="Lead time">
-            ~{leadTimeWeeks}w
+            Approx. {leadTimeWeeks}-week lead time
           </div>
           <button
             type="button"
@@ -178,7 +184,7 @@ export function StickyBar({
             className={`stickybar__price stickybar__price--btn${expanded ? " is-expanded" : ""}`}
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            aria-label={expanded ? "Hide breakdown" : "Show breakdown"}
+            aria-label={expanded ? "Hide price breakdown" : "View price breakdown"}
           >
             <span className="stickybar__amount" data-dir={direction ?? undefined}>
               {formatNZD(totals.grand)}
@@ -186,9 +192,12 @@ export function StickyBar({
             <span className="stickybar__note">
               {isOther ? "+ freight TBC · incl GST" : "incl GST"}
             </span>
-            <svg className="stickybar__chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden>
-              <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <span className="stickybar__breakdown-link">
+              {expanded ? "Hide breakdown" : "View breakdown"}
+              <svg className="stickybar__chevron" viewBox="0 0 16 16" width="11" height="11" aria-hidden>
+                <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
           </button>
         </div>
       </div>
