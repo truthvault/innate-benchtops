@@ -26,6 +26,8 @@ function modeToValue(m: ShippingMode): string {
       return "chchSurrounds";
     case "nationwide":
       return m.destination ? `nw:${m.destination}` : "";
+    case "other":
+      return "other";
   }
 }
 
@@ -33,6 +35,7 @@ function valueToMode(v: string): ShippingMode | null {
   if (v === "pickup") return { kind: "pickup" };
   if (v === "chchMetro") return { kind: "chchMetro" };
   if (v === "chchSurrounds") return { kind: "chchSurrounds" };
+  if (v === "other") return { kind: "other" };
   if (v.startsWith("nw:")) return { kind: "nationwide", destination: v.slice(3) };
   return null;
 }
@@ -47,6 +50,8 @@ function priceTag(mode: ShippingMode): string {
       return `$${SHIPPING.chchSurroundsFlat}`;
     case "nationwide":
       return mode.destination ? "weight-based freight" : "";
+    case "other":
+      return "TBC";
   }
 }
 
@@ -116,7 +121,14 @@ export function DeliveryPicker({ value, onChange }: Props) {
               ))}
             </optgroup>
           ))}
+          <optgroup label="Somewhere else">
+            <option value="other">Other — we'll confirm freight with you</option>
+          </optgroup>
         </select>
+        <p className="delivery__hint">
+          Can't see your town? Pick the nearest, or choose <em>Other</em> — the
+          list covers our freight partners' main destinations.
+        </p>
       </label>
 
       <div className="delivery__tag" aria-live="polite">
@@ -128,6 +140,8 @@ export function DeliveryPicker({ value, onChange }: Props) {
             `Nationwide freight · ${value.destination}`}
           {value.kind === "nationwide" && !value.destination &&
             "Select a destination above"}
+          {value.kind === "other" &&
+            "We'll quote freight for your address when we come back to you"}
         </span>
         <span className="delivery__tag-price">{priceTag(value)}</span>
       </div>

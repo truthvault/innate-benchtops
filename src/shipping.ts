@@ -37,7 +37,8 @@ export type ShippingMode =
   | { kind: "pickup" }
   | { kind: "chchMetro" }
   | { kind: "chchSurrounds" }
-  | { kind: "nationwide"; destination: string };
+  | { kind: "nationwide"; destination: string }
+  | { kind: "other" };
 
 export interface AddressMatch {
   mode: ShippingMode;
@@ -261,6 +262,8 @@ export function shippingCost(
       const cost = nationwideForDestination(mode.destination, kg);
       return { cost, label: `Nationwide — ${mode.destination}` };
     }
+    case "other":
+      return { cost: 0, label: "Freight to be confirmed" };
   }
 }
 

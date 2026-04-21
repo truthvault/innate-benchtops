@@ -1279,6 +1279,17 @@ a { color: inherit; }
 /* ---------- delivery picker (single-select redesign) ---------- */
 
 .delivery__select { display: flex; flex-direction: column; gap: .25rem; }
+.delivery__hint {
+  margin: .35rem 0 0;
+  font-size: .75rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.delivery__hint em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ink);
+}
 .delivery__select select {
   border: 1px solid var(--stone-200);
   background: var(--stone-50);
