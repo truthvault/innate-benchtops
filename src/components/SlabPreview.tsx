@@ -11,10 +11,10 @@ interface Props {
 }
 
 const VIEW = { w: 1000, h: 356 };
-const MARGIN_TOP = 22;
-const MARGIN_RIGHT = 24;
-const MARGIN_BOTTOM = 18;
-const MARGIN_LEFT = 48;
+const MARGIN_TOP = 18;
+const MARGIN_RIGHT = 20;
+const MARGIN_BOTTOM = 14;
+const MARGIN_LEFT = 42;
 const DIM_RESERVE = 22;
 const GAP_MM = 80;
 
@@ -187,8 +187,8 @@ export function SlabPreview({
                 ry={6}
                 fill="none"
                 stroke="#0c201c"
-                strokeOpacity="0.35"
-                strokeWidth="1.25"
+                strokeOpacity="0.5"
+                strokeWidth="1.4"
               />
 
               {placed.map((pc, idx) => {
@@ -290,10 +290,10 @@ export function SlabPreview({
                 stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
               <line x1={b.x + b.w} y1={dimY - 4} x2={b.x + b.w} y2={dimY + 4}
                 stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <rect x={midX - 30} y={dimY - 9} width={60} height={18} rx={3}
+              <rect x={midX - 32} y={dimY - 10} width={64} height={20} rx={3}
                 fill="#ffffff" fillOpacity="0.96" />
               <text x={midX} y={dimY} textAnchor="middle" dominantBaseline="middle"
-                fontSize="13" fill="#0c201c" fillOpacity="0.82"
+                fontSize="14" fill="#0c201c" fillOpacity="0.9"
                 fontFamily="Maven Pro, sans-serif" fontWeight="500"
                 style={{ fontVariantNumeric: "tabular-nums" }}>
                 {b.panel.length} mm
@@ -316,10 +316,10 @@ export function SlabPreview({
               <line x1={dimX - 4} y1={b.y + b.h} x2={dimX + 4} y2={b.y + b.h}
                 stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
               <g transform={`translate(${dimX} ${midY}) rotate(-90)`}>
-                <rect x={-30} y={-9} width={60} height={18} rx={3}
+                <rect x={-32} y={-10} width={64} height={20} rx={3}
                   fill="#ffffff" fillOpacity="0.96" />
                 <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
-                  fontSize="13" fill="#0c201c" fillOpacity="0.82"
+                  fontSize="14" fill="#0c201c" fillOpacity="0.9"
                   fontFamily="Maven Pro, sans-serif" fontWeight="500"
                   style={{ fontVariantNumeric: "tabular-nums" }}>
                   {b.panel.width} mm
