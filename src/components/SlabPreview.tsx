@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
 import { findSpecies, type FinishId, type SpeciesId } from "../species";
 import { Offcut } from "./Offcut";
@@ -43,16 +43,71 @@ interface DragState {
 const clamp = (n: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, n));
 
+type EditField = "h" | "v" | "w" | "d";
+interface EditingState {
+  cutoutId: string;
+  field: EditField;
+}
+
 export function SlabPreview({
   panels, species, finish, onCutoutChange,
 }: Props) {
   const sp = findSpecies(species);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
 
   const { boxes, scale } = useMemo(() => layout(panels), [panels]);
 
   const filterId = finish === "raw" ? "url(#finish-raw)" : undefined;
+
+  const commitEdit = (placed: PlacedCutout, field: EditField, raw: string) => {
+    if (!onCutoutChange) { setEditing(null); return; }
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n)) { setEditing(null); return; }
+    const { cutout, box, dLeft, dRight, dTop, dBottom } = placed;
+    const panel = box.panel;
+    const hNearLeft = dLeft <= dRight;
+    const vNearTop = dTop <= dBottom;
+
+    switch (field) {
+      case "h": {
+        // Distance from the near horizontal edge.
+        const maxDist = Math.max(0, panel.length - cutout.widthMm);
+        const dist = clamp(n, 0, maxDist);
+        const fromLeft = hNearLeft ? dist : panel.length - dist - cutout.widthMm;
+        const nextPos = clamp((fromLeft + cutout.widthMm / 2) / panel.length, 0, 1);
+        onCutoutChange(panel.id, cutout.id, { pos: nextPos });
+        break;
+      }
+      case "v": {
+        const maxDist = Math.max(0, panel.width - cutout.depthMm);
+        const dist = clamp(n, 0, maxDist);
+        const fromTop = vNearTop ? dist : panel.width - dist - cutout.depthMm;
+        const nextCross = clamp((fromTop + cutout.depthMm / 2) / panel.width, 0, 1);
+        onCutoutChange(panel.id, cutout.id, { cross: nextCross });
+        break;
+      }
+      case "w": {
+        // Resize the cutout width while keeping its left edge roughly fixed.
+        const currFromLeft = cutout.pos * panel.length - cutout.widthMm / 2;
+        const maxW = Math.max(50, panel.length - 20);
+        const next = clamp(n, 50, maxW);
+        const nextPos = clamp((currFromLeft + next / 2) / panel.length, 0, 1);
+        onCutoutChange(panel.id, cutout.id, { widthMm: next, pos: nextPos });
+        break;
+      }
+      case "d": {
+        const currFromTop = cutout.cross * panel.width - cutout.depthMm / 2;
+        const maxD = Math.max(50, panel.width - 20);
+        const next = clamp(n, 50, maxD);
+        const nextCross = clamp((currFromTop + next / 2) / panel.width, 0, 1);
+        onCutoutChange(panel.id, cutout.id, { depthMm: next, cross: nextCross });
+        break;
+      }
+    }
+    setEditing(null);
+  };
 
   const pointerToPanel = (e: React.PointerEvent, box: Box, cutout: Cutout) => {
     const svg = svgRef.current;
@@ -238,57 +293,159 @@ export function SlabPreview({
                     </g>
 
                     {/* distance leaders — panel edge to cutout edge, with the
-                        number sitting on the line. Replaces the prior floating
-                        numbers in mid-air. */}
-                    <g className="cutout__dim" aria-hidden>
-                      {/* horizontal leader */}
-                      <line
-                        x1={hLineFrom} y1={cy} x2={hLineTo} y2={cy}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <line
-                        x1={hLineFrom} y1={cy - 3} x2={hLineFrom} y2={cy + 3}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <line
-                        x1={hLineTo} y1={cy - 3} x2={hLineTo} y2={cy + 3}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <rect
-                        x={hLabelX - 16} y={cy - 7} width={32} height={14} rx={2}
-                        fill="#ffffff" fillOpacity="0.92"
-                      />
-                      <text
-                        x={hLabelX} y={cy} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fill="#0c201c" fillOpacity="0.9"
-                        fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {Math.round(nearH)}
-                      </text>
+                        number sitting on the line. Click the number to edit it. */}
+                    <g className="cutout__dim">
+                      {/* horizontal leader (lines are presentational) */}
+                      <g aria-hidden>
+                        <line
+                          x1={hLineFrom} y1={cy} x2={hLineTo} y2={cy}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                        <line
+                          x1={hLineFrom} y1={cy - 3} x2={hLineFrom} y2={cy + 3}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                        <line
+                          x1={hLineTo} y1={cy - 3} x2={hLineTo} y2={cy + 3}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                      </g>
+                      {editing?.cutoutId === cutout.id && editing.field === "h" ? (
+                        renderEdit(pc, "h", hLabelX - 20, cy - 9, 40, 18, Math.round(nearH), commitEdit, setEditing)
+                      ) : (
+                        <g
+                          role="button"
+                          aria-label={`Distance from ${hNearLeft ? "left" : "right"} edge, ${Math.round(nearH)} mm. Click to edit.`}
+                          style={{ cursor: onCutoutChange ? "text" : "default" }}
+                          onClick={(e) => {
+                            if (!onCutoutChange) return;
+                            e.stopPropagation();
+                            setEditing({ cutoutId: cutout.id, field: "h" });
+                          }}
+                        >
+                          <rect
+                            x={hLabelX - 16} y={cy - 7} width={32} height={14} rx={2}
+                            fill="#ffffff" fillOpacity="0.92"
+                          />
+                          <text
+                            x={hLabelX} y={cy} textAnchor="middle" dominantBaseline="middle"
+                            fontSize="9" fill="#0c201c" fillOpacity="0.9"
+                            fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {Math.round(nearH)}
+                          </text>
+                        </g>
+                      )}
                       {/* vertical leader */}
-                      <line
-                        x1={cx} y1={vLineFrom} x2={cx} y2={vLineTo}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <line
-                        x1={cx - 3} y1={vLineFrom} x2={cx + 3} y2={vLineFrom}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <line
-                        x1={cx - 3} y1={vLineTo} x2={cx + 3} y2={vLineTo}
-                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
-                      />
-                      <rect
-                        x={cx - 16} y={vLabelY - 7} width={32} height={14} rx={2}
-                        fill="#ffffff" fillOpacity="0.92"
-                      />
+                      <g aria-hidden>
+                        <line
+                          x1={cx} y1={vLineFrom} x2={cx} y2={vLineTo}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                        <line
+                          x1={cx - 3} y1={vLineFrom} x2={cx + 3} y2={vLineFrom}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                        <line
+                          x1={cx - 3} y1={vLineTo} x2={cx + 3} y2={vLineTo}
+                          stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                        />
+                      </g>
+                      {editing?.cutoutId === cutout.id && editing.field === "v" ? (
+                        renderEdit(pc, "v", cx - 20, vLabelY - 9, 40, 18, Math.round(nearV), commitEdit, setEditing)
+                      ) : (
+                        <g
+                          role="button"
+                          aria-label={`Distance from ${vNearTop ? "front" : "back"} edge, ${Math.round(nearV)} mm. Click to edit.`}
+                          style={{ cursor: onCutoutChange ? "text" : "default" }}
+                          onClick={(e) => {
+                            if (!onCutoutChange) return;
+                            e.stopPropagation();
+                            setEditing({ cutoutId: cutout.id, field: "v" });
+                          }}
+                        >
+                          <rect
+                            x={cx - 16} y={vLabelY - 7} width={32} height={14} rx={2}
+                            fill="#ffffff" fillOpacity="0.92"
+                          />
+                          <text
+                            x={cx} y={vLabelY} textAnchor="middle" dominantBaseline="middle"
+                            fontSize="9" fill="#0c201c" fillOpacity="0.9"
+                            fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {Math.round(nearV)}
+                          </text>
+                        </g>
+                      )}
+                    </g>
+
+                    {/* Centre size label: W × D, each number independently
+                        editable. Sits on top of the (charcoal) cutout fill.
+                        Stops pointerdown propagation so the parent cutout
+                        doesn't steal the click for a drag. */}
+                    <g
+                      className="cutout__size"
+                      onPointerDown={(e) => { if (onCutoutChange) e.stopPropagation(); }}
+                    >
+                      {editing?.cutoutId === cutout.id && editing.field === "w" ? (
+                        renderEdit(pc, "w", cx - 32, cy - 9, 30, 18, cutout.widthMm, commitEdit, setEditing)
+                      ) : (
+                        <g
+                          role="button"
+                          aria-label={`Cutout width, ${cutout.widthMm} mm. Click to edit.`}
+                          style={{ cursor: onCutoutChange ? "text" : "default" }}
+                          onClick={(e) => {
+                            if (!onCutoutChange) return;
+                            e.stopPropagation();
+                            setEditing({ cutoutId: cutout.id, field: "w" });
+                          }}
+                        >
+                          <rect
+                            x={cx - 32} y={cy - 8} width={26} height={16}
+                            fill="transparent" pointerEvents="all"
+                          />
+                          <text
+                            x={cx - 6} y={cy} textAnchor="end" dominantBaseline="middle"
+                            fontSize="9" fill="#f3f0ee" fillOpacity="0.95"
+                            fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {cutout.widthMm}
+                          </text>
+                        </g>
+                      )}
                       <text
-                        x={cx} y={vLabelY} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fill="#0c201c" fillOpacity="0.9"
-                        fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
+                        x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+                        fontSize="9" fill="#f3f0ee" fillOpacity="0.65"
+                        fontFamily="Maven Pro, sans-serif" aria-hidden pointerEvents="none"
                       >
-                        {Math.round(nearV)}
+                        ×
                       </text>
+                      {editing?.cutoutId === cutout.id && editing.field === "d" ? (
+                        renderEdit(pc, "d", cx + 2, cy - 9, 30, 18, cutout.depthMm, commitEdit, setEditing)
+                      ) : (
+                        <g
+                          role="button"
+                          aria-label={`Cutout depth, ${cutout.depthMm} mm. Click to edit.`}
+                          style={{ cursor: onCutoutChange ? "text" : "default" }}
+                          onClick={(e) => {
+                            if (!onCutoutChange) return;
+                            e.stopPropagation();
+                            setEditing({ cutoutId: cutout.id, field: "d" });
+                          }}
+                        >
+                          <rect
+                            x={cx + 6} y={cy - 8} width={26} height={16}
+                            fill="transparent" pointerEvents="all"
+                          />
+                          <text
+                            x={cx + 6} y={cy} textAnchor="start" dominantBaseline="middle"
+                            fontSize="9" fill="#f3f0ee" fillOpacity="0.95"
+                            fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
+                            {cutout.depthMm}
+                          </text>
+                        </g>
+                      )}
                     </g>
                   </g>
                 );
@@ -398,6 +555,60 @@ function layout(panels: Panel[]) {
   ).items;
 
   return { boxes, scale };
+}
+
+/**
+ * Renders an inline <foreignObject> input over the slab SVG so the
+ * numeric label a customer just clicked can be typed over. Committed
+ * on Enter or blur; Escape cancels.
+ */
+function renderEdit(
+  placed: PlacedCutout,
+  field: EditField,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  initial: number,
+  commit: (p: PlacedCutout, f: EditField, raw: string) => void,
+  cancel: (v: null) => void,
+) {
+  return (
+    <foreignObject x={x} y={y} width={width} height={height}>
+      <input
+        type="number"
+        inputMode="numeric"
+        autoFocus
+        defaultValue={initial}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit(placed, field, e.currentTarget.value);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancel(null);
+          }
+        }}
+        onBlur={(e) => commit(placed, field, e.currentTarget.value)}
+        style={{
+          width: "100%",
+          height: "100%",
+          fontSize: "10px",
+          fontFamily: "Maven Pro, sans-serif",
+          fontVariantNumeric: "tabular-nums",
+          textAlign: "center",
+          padding: "0 2px",
+          border: "1px solid #0c201c",
+          borderRadius: "2px",
+          background: "#ffffff",
+          color: "#0c201c",
+          boxSizing: "border-box",
+          outline: "none",
+        }}
+      />
+    </foreignObject>
+  );
 }
 
 function placeCutouts(box: Box, cutouts: Cutout[], scale: number): PlacedCutout[] {
