@@ -204,8 +204,8 @@ export function SlabPreview({
             />
           </filter>
           <linearGradient id="cutout-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3a3a38" stopOpacity="0.98" />
-            <stop offset="100%" stopColor="#262624" stopOpacity="0.98" />
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="100%" stopColor="#faf7f2" stopOpacity="1" />
           </linearGradient>
           {boxes.map((b, i) => (
             <clipPath key={b.panel.id} id={`clip-${i}`}>
@@ -286,9 +286,9 @@ export function SlabPreview({
                       <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={3} ry={3} fill="none" stroke="#0c201c" strokeOpacity="0.55" strokeWidth="1" />
                       <rect className="cutout__ring" x={rect.x - 1.5} y={rect.y - 1.5} width={rect.w + 3} height={rect.h + 3} rx={4} ry={4} fill="none" />
                       <g className="cutout__grab" aria-hidden>
-                        <circle cx={cx - 4} cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
-                        <circle cx={cx}     cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
-                        <circle cx={cx + 4} cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
+                        <circle cx={cx - 4} cy={cy} r="1.4" fill="#0c201c" fillOpacity="0.55" />
+                        <circle cx={cx}     cy={cy} r="1.4" fill="#0c201c" fillOpacity="0.55" />
+                        <circle cx={cx + 4} cy={cy} r="1.4" fill="#0c201c" fillOpacity="0.55" />
                       </g>
                     </g>
 
@@ -373,14 +373,14 @@ export function SlabPreview({
                           aria={`Cutout width, ${cutout.widthMm} mm. Click to edit.`}
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "w" })}
                           textFill="#f3f0ee"
-                          textOpacity={0.95}
-                          variant="dark"
+                          textOpacity={1}
+                          variant="backlit"
                         />
                       )}
                       <text
                         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fill="#f3f0ee" fillOpacity="0.55"
-                        fontFamily="Maven Pro, sans-serif" aria-hidden
+                        fontSize="9.5" fill="#0c201c" fillOpacity="0.55"
+                        fontFamily="Maven Pro, sans-serif" aria-hidden fontWeight={500}
                         style={{ pointerEvents: "none" }}
                       >
                         ×
@@ -395,8 +395,8 @@ export function SlabPreview({
                           aria={`Cutout depth, ${cutout.depthMm} mm. Click to edit.`}
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "d" })}
                           textFill="#f3f0ee"
-                          textOpacity={0.95}
-                          variant="dark"
+                          textOpacity={1}
+                          variant="backlit"
                         />
                       )}
                     </g>
