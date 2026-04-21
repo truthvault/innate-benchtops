@@ -64,8 +64,11 @@ export default function App() {
     setQuote((q) => ({ ...q, finish })), []);
   const setShipping = useCallback((shipping: ShippingMode) =>
     setQuote((q) => ({ ...q, shipping })), []);
-  const setCustomer = useCallback((customer: Quote["customer"]) =>
-    setQuote((q) => ({ ...q, customer })), []);
+  const patchCustomer = useCallback(
+    (updates: Partial<Quote["customer"]>) =>
+      setQuote((q) => ({ ...q, customer: { ...q.customer, ...updates } })),
+    [],
+  );
   const setCutout = useCallback(
     (panelId: string, cutoutId: string, updates: Partial<Cutout>) =>
       setQuote((q) => ({
@@ -161,7 +164,7 @@ export default function App() {
         totals={totals}
         quoteNo={session.quoteNo}
         onClose={() => setModalOpen(false)}
-        onCustomerChange={setCustomer}
+        onCustomerPatch={patchCustomer}
         onReset={resetQuote}
       />
     </div>

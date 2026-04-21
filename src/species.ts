@@ -55,7 +55,7 @@ export const PRICING = pricingJson as {
   cutoutPrice: number;
   cutoutDefaults: { widthMm: number; depthMm: number };
   perJobFixed: { panelRepairFund: number; admin: number };
-  leadTimeWeeks: { raw: number; oiled: number; withCutouts: number };
+  leadTimeWeeks: { raw: number; other: number };
   currency: string;
   locale: string;
 };

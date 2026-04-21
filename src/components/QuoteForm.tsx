@@ -13,7 +13,7 @@ interface Props {
   totals: Totals;
   quoteNo: string;
   onClose: () => void;
-  onCustomerChange: (c: Quote["customer"]) => void;
+  onCustomerPatch: (updates: Partial<Quote["customer"]>) => void;
   onReset: () => void;
 }
 
@@ -38,7 +38,7 @@ const PATHS: { id: SharePath; title: string; sub: string }[] = [
 ];
 
 export function QuoteForm({
-  open, quote, totals, quoteNo, onClose, onCustomerChange, onReset,
+  open, quote, totals, quoteNo, onClose, onCustomerPatch, onReset,
 }: Props) {
   const [stage, setStage] = useState<Stage>("choose");
   const [path, setPath] = useState<SharePath>("self");
@@ -265,7 +265,7 @@ export function QuoteForm({
                 <input
                   ref={firstField}
                   value={c.name}
-                  onChange={(e) => onCustomerChange({ ...c, name: e.target.value })}
+                  onChange={(e) => onCustomerPatch({ name: e.target.value })}
                   aria-invalid={touched && !nameOk}
                   autoComplete="name"
                 />
@@ -275,7 +275,7 @@ export function QuoteForm({
                 <input
                   type="email"
                   value={c.email}
-                  onChange={(e) => onCustomerChange({ ...c, email: e.target.value })}
+                  onChange={(e) => onCustomerPatch({ email: e.target.value })}
                   aria-invalid={touched && !emailOk}
                   autoComplete="email"
                 />
@@ -288,7 +288,7 @@ export function QuoteForm({
                 <input
                   type="tel"
                   value={c.phone}
-                  onChange={(e) => onCustomerChange({ ...c, phone: e.target.value })}
+                  onChange={(e) => onCustomerPatch({ phone: e.target.value })}
                   aria-invalid={touched && path === "workshop" && !phoneOk}
                   autoComplete="tel"
                 />
@@ -330,7 +330,7 @@ export function QuoteForm({
                 <textarea
                   rows={2}
                   value={c.notes}
-                  onChange={(e) => onCustomerChange({ ...c, notes: e.target.value })}
+                  onChange={(e) => onCustomerPatch({ notes: e.target.value })}
                   placeholder={path === "workshop"
                     ? "Install date, site access, finish preferences…"
                     : "Anything you'd like us to know."}
@@ -433,6 +433,7 @@ function QuoteSummary({
 }) {
   return (
     <div className="quote-summary">
+      <div className="quote-summary__no">Quote {quoteNo}</div>
       <dl>
         <div><dt>Timber</dt><dd>{speciesLabel}</dd></div>
         <div><dt>Finish</dt><dd>{quote.finish === "oiled" ? "Sanded & oiled" : "Raw, unsanded"}</dd></div>
@@ -443,7 +444,6 @@ function QuoteSummary({
           <dt>Total incl GST</dt><dd>{formatNZD(totals.grand)}</dd>
         </div>
       </dl>
-      <div className="quote-summary__no">Quote {quoteNo}</div>
     </div>
   );
 }

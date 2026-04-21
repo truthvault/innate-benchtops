@@ -196,10 +196,7 @@ export function priceQuote(q: Quote): Totals {
 
 export function leadTimeWeeks(q: Quote): number {
   const cfg = PRICING.leadTimeWeeks;
-  const hasCutouts = q.panels.some((p) => (p.cutouts ?? []).length > 0);
-  if (hasCutouts) return cfg.withCutouts;
-  if (q.finish === "oiled") return cfg.oiled;
-  return cfg.raw;
+  return q.finish === "raw" ? cfg.raw : cfg.other;
 }
 
 // Used in old LineCost consumers — kept for ergonomic access

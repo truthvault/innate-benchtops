@@ -37,7 +37,7 @@ export const blankPanel = (label = "Benchtop"): Panel => ({
 export const defaultShipping = (): ShippingMode => ({ kind: "pickup" });
 
 export const defaultQuote = (): Quote => ({
-  panels: [blankPanel("Island bench")],
+  panels: [blankPanel("")],
   species: "rimu" as SpeciesId,
   finish: "oiled" as FinishId,
   shipping: defaultShipping(),

@@ -120,7 +120,7 @@ function PanelRow({
           unit="mm"
           value={panel.width}
           min={200}
-          max={1200}
+          max={2000}
           step={10}
           onCommit={(n) => setNum("width", n)}
         />
@@ -145,7 +145,7 @@ function PanelRow({
 
       <div className="panel-row__cutouts">
         <Stepper
-          label="Sink / cooktop cutouts"
+          label="Cutouts"
           value={panel.cutouts.length}
           min={0}
           max={3}

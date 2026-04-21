@@ -27,8 +27,7 @@
   },
   "leadTimeWeeks": {
     "raw": 4,
-    "oiled": 6,
-    "withCutouts": 8
+    "other": 6
   },
   "currency": "NZD",
   "locale": "en-NZ"

@@ -678,7 +678,6 @@ a { color: inherit; }
   border-radius: var(--radius);
   padding: .9rem 1rem;
   margin-bottom: 1.1rem;
-  position: relative;
 }
 .quote-summary dl {
   display: grid;
@@ -707,9 +706,15 @@ a { color: inherit; }
   color: var(--forest);
 }
 .quote-summary__no {
-  position: absolute; top: .55rem; right: .75rem;
-  font-size: .7rem; color: var(--ink-faint);
-  letter-spacing: .04em;
+  display: block;
+  text-align: right;
+  margin: 0 0 .55rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px dashed var(--stone-200);
+  font-size: .72rem;
+  color: var(--ink-soft);
+  letter-spacing: .06em;
+  font-weight: 500;
 }
 
 /* ---------- quote form ---------- */
