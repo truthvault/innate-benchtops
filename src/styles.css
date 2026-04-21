@@ -1570,27 +1570,7 @@ a { color: inherit; }
   flex: 1 1 260px;
 }
 
-.stickybar__pickup-btn {
-  flex: 0 0 auto;
-  padding: .42rem .65rem;
-  border: 1px solid var(--stone-200);
-  border-radius: var(--radius);
-  background: var(--paper);
-  color: var(--ink-soft);
-  font-size: .82rem;
-  font-weight: 500;
-  transition: background .12s var(--ease), color .12s var(--ease), border-color .12s var(--ease);
-}
-.stickybar__pickup-btn:hover {
-  background: var(--stone-50);
-  border-color: var(--forest-line);
-  color: var(--ink);
-}
-.stickybar__pickup-btn.is-on {
-  background: var(--forest);
-  border-color: var(--forest);
-  color: #f3f0ee;
-}
+/* (Pickup button styles removed — now uses shared .stickybar__finish segmented control) */
 
 /* ---------- address search combobox ---------- */
 

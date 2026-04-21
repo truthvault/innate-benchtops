@@ -39,7 +39,16 @@ export function StickyBar({
   const direction = prior !== null ? (totals.grand > prior ? "up" : "down") : null;
   const isOther = shippingMode.kind === "other";
   const isUnset = shippingMode.kind === "unset";
+  const isPickup = shippingMode.kind === "pickup";
+  const isDelivered = !isPickup;
   const canShare = !isUnset;
+
+  const pickPickup = () => onShippingChange({ kind: "pickup" });
+  const pickDelivered = () => {
+    // Keep existing delivery mode if the user already picked one; otherwise
+    // start from "unset" so Share stays disabled until an address is chosen.
+    if (shippingMode.kind === "pickup") onShippingChange({ kind: "unset" });
+  };
 
   const freightPrice =
     shippingMode.kind === "other"
@@ -114,23 +123,37 @@ export function StickyBar({
             </button>
           </div>
 
-          {/* Delivery */}
+          {/* Delivery: Pickup / Delivered segmented + address input */}
           <div className={`stickybar__delivery${isUnset ? " is-needs-attention" : ""}`}>
-            <button
-              type="button"
-              className={`stickybar__pickup-btn${shippingMode.kind === "pickup" ? " is-on" : ""}`}
-              onClick={() => onShippingChange({ kind: "pickup" })}
-              aria-pressed={shippingMode.kind === "pickup"}
-              title="I'll pick up from the workshop"
-            >
-              Pickup
-            </button>
-            <AddressSearch
-              value={shippingMode}
-              shippingCost={totals.shipping.cost}
-              shippingLabel={totals.shipping.label}
-              onChange={onShippingChange}
-            />
+            <div className="stickybar__finish" role="radiogroup" aria-label="Delivery method">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isPickup}
+                className={`stickybar__finish-btn${isPickup ? " is-on" : ""}`}
+                onClick={pickPickup}
+              >
+                Pickup
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isDelivered}
+                className={`stickybar__finish-btn${isDelivered ? " is-on" : ""}`}
+                onClick={pickDelivered}
+              >
+                Delivered
+              </button>
+            </div>
+            {isDelivered && (
+              <AddressSearch
+                value={shippingMode}
+                shippingCost={totals.shipping.cost}
+                shippingLabel={totals.shipping.label}
+                onChange={onShippingChange}
+                autoFocus
+              />
+            )}
           </div>
 
           {/* Price (pushed right) */}

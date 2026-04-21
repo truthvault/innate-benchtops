@@ -16,6 +16,8 @@ interface Props {
   /** Pre-computed label, e.g. "Christchurch Metro" or "Nationwide — Auckland" */
   shippingLabel: string;
   onChange: (mode: ShippingMode) => void;
+  /** Focus input when the combobox mounts */
+  autoFocus?: boolean;
 }
 
 /**
@@ -24,7 +26,9 @@ interface Props {
  * On pick, the place's lat/lng is resolved via haversine to the
  * nearest freight zone and ShippingMode is updated.
  */
-export function AddressSearch({ value, shippingCost: cost, shippingLabel, onChange }: Props) {
+export function AddressSearch({
+  value, shippingCost: cost, shippingLabel, onChange, autoFocus,
+}: Props) {
   const [q, setQ] = useState<string>(() => displayFor(value));
   const [preds, setPreds] = useState<Prediction[]>([]);
   const [open, setOpen] = useState(false);
@@ -34,7 +38,17 @@ export function AddressSearch({ value, shippingCost: cost, shippingLabel, onChan
   const [session] = useState(() => freshSession());
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
+
+  // Auto-focus when requested (e.g. when switching to Delivered mode)
+  useEffect(() => {
+    if (autoFocus) {
+      // Delay a tick so the input is fully painted
+      const t = window.setTimeout(() => inputRef.current?.focus(), 30);
+      return () => window.clearTimeout(t);
+    }
+  }, [autoFocus]);
 
   // Sync prop → input when the value changes externally (adjust-state-during-render pattern)
   const [prevValue, setPrevValue] = useState<ShippingMode>(value);
@@ -149,6 +163,7 @@ export function AddressSearch({ value, shippingCost: cost, shippingLabel, onChan
   return (
     <div className="addr-search" ref={containerRef}>
       <input
+        ref={inputRef}
         type="text"
         className="addr-search__input"
         value={q}
