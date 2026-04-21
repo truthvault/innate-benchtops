@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { Resend } from "resend";
 
 // ─── Types (narrow copies of client types, kept here to avoid the bundler
