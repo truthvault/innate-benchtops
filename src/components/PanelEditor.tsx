@@ -79,9 +79,7 @@ interface RowProps {
 function PanelRow({
   panel, species, fresh, canRemove, lineTotal, onUpdate, onRemove, onCutoutChange,
 }: RowProps) {
-  const sp = findSpecies(species);
-  const maxThickness = sp.maxThicknessMm;
-  const thicknessAtCap = panel.thickness >= maxThickness;
+  const maxThickness = findSpecies(species).maxThicknessMm;
   const labelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -147,7 +145,6 @@ function PanelRow({
           min={MIN_THICKNESS_MM}
           max={maxThickness}
           step={1}
-          hint={thicknessAtCap ? `max for ${sp.name}` : undefined}
           onCommit={(n) => setNum("thickness", n)}
         />
         <NumField
