@@ -342,7 +342,7 @@ export function shippingCost(
       const base = nationwideForDestination(mode.destination, kg, panels);
       return {
         cost: applyGlobalUplift(base),
-        label: `Nationwide — ${mode.destination}`,
+        label: mode.destination,
       };
     }
     case "other":
