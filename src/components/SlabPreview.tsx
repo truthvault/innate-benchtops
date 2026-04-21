@@ -149,12 +149,12 @@ export function SlabPreview({
             />
           </filter>
           <linearGradient id="cutout-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.98" />
-            <stop offset="100%" stopColor="#f5f3ef" stopOpacity="0.98" />
+            <stop offset="0%" stopColor="#3a3a38" stopOpacity="0.98" />
+            <stop offset="100%" stopColor="#262624" stopOpacity="0.98" />
           </linearGradient>
           {boxes.map((b, i) => (
             <clipPath key={b.panel.id} id={`clip-${i}`}>
-              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={6} ry={6} />
+              <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={3} ry={3} />
             </clipPath>
           ))}
         </defs>
@@ -183,8 +183,8 @@ export function SlabPreview({
                 y={b.y}
                 width={b.w}
                 height={b.h}
-                rx={6}
-                ry={6}
+                rx={3}
+                ry={3}
                 fill="none"
                 stroke="#0c201c"
                 strokeOpacity="0.5"
@@ -205,6 +205,13 @@ export function SlabPreview({
                 const vLabelY = vNearTop
                   ? (b.y + rect.y) / 2
                   : (rect.y + rect.h + b.y + b.h) / 2;
+                // Leader-line endpoints: panel edge ↔ cutout edge at the
+                // axis passing through the label. Gives the number
+                // something to anchor to instead of floating.
+                const hLineFrom = hNearLeft ? b.x : b.x + b.w;
+                const hLineTo = hNearLeft ? rect.x : rect.x + rect.w;
+                const vLineFrom = vNearTop ? b.y : b.y + b.h;
+                const vLineTo = vNearTop ? rect.y : rect.y + rect.h;
                 return (
                   <g key={cutout.id}>
                     <g
@@ -220,36 +227,64 @@ export function SlabPreview({
                       onPointerCancel={(e) => onCutoutPointerEnd(e, b, cutout)}
                       onKeyDown={(e) => onCutoutKeyDown(e, b, cutout)}
                     >
-                      <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={6} ry={6} fill="url(#cutout-grad)" />
-                      <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={6} ry={6} fill="none" stroke="#163832" strokeOpacity="0.4" strokeWidth="1" />
-                      <rect className="cutout__ring" x={rect.x - 1.5} y={rect.y - 1.5} width={rect.w + 3} height={rect.h + 3} rx={7} ry={7} fill="none" />
+                      <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={3} ry={3} fill="url(#cutout-grad)" />
+                      <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={3} ry={3} fill="none" stroke="#0c201c" strokeOpacity="0.55" strokeWidth="1" />
+                      <rect className="cutout__ring" x={rect.x - 1.5} y={rect.y - 1.5} width={rect.w + 3} height={rect.h + 3} rx={4} ry={4} fill="none" />
                       <g className="cutout__grab" aria-hidden>
-                        <circle cx={cx - 4} cy={cy} r="1.4" fill="#163832" fillOpacity="0.55" />
-                        <circle cx={cx}     cy={cy} r="1.4" fill="#163832" fillOpacity="0.55" />
-                        <circle cx={cx + 4} cy={cy} r="1.4" fill="#163832" fillOpacity="0.55" />
+                        <circle cx={cx - 4} cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
+                        <circle cx={cx}     cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
+                        <circle cx={cx + 4} cy={cy} r="1.4" fill="#f3f0ee" fillOpacity="0.7" />
                       </g>
                     </g>
 
-                    {/* distance labels — always visible while a cutout is placed */}
+                    {/* distance leaders — panel edge to cutout edge, with the
+                        number sitting on the line. Replaces the prior floating
+                        numbers in mid-air. */}
                     <g className="cutout__dim" aria-hidden>
+                      {/* horizontal leader */}
+                      <line
+                        x1={hLineFrom} y1={cy} x2={hLineTo} y2={cy}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
+                      <line
+                        x1={hLineFrom} y1={cy - 3} x2={hLineFrom} y2={cy + 3}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
+                      <line
+                        x1={hLineTo} y1={cy - 3} x2={hLineTo} y2={cy + 3}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
                       <rect
-                        x={hLabelX - 16} y={cy - 7} width={32} height={14} rx={3}
-                        fill="#ffffff" fillOpacity="0.82"
+                        x={hLabelX - 16} y={cy - 7} width={32} height={14} rx={2}
+                        fill="#ffffff" fillOpacity="0.92"
                       />
                       <text
                         x={hLabelX} y={cy} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fill="#163832" fillOpacity="0.9"
+                        fontSize="9" fill="#0c201c" fillOpacity="0.9"
                         fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
                       >
                         {Math.round(nearH)}
                       </text>
+                      {/* vertical leader */}
+                      <line
+                        x1={cx} y1={vLineFrom} x2={cx} y2={vLineTo}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
+                      <line
+                        x1={cx - 3} y1={vLineFrom} x2={cx + 3} y2={vLineFrom}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
+                      <line
+                        x1={cx - 3} y1={vLineTo} x2={cx + 3} y2={vLineTo}
+                        stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
+                      />
                       <rect
-                        x={cx - 16} y={vLabelY - 7} width={32} height={14} rx={3}
-                        fill="#ffffff" fillOpacity="0.82"
+                        x={cx - 16} y={vLabelY - 7} width={32} height={14} rx={2}
+                        fill="#ffffff" fillOpacity="0.92"
                       />
                       <text
                         x={cx} y={vLabelY} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="9" fill="#163832" fillOpacity="0.9"
+                        fontSize="9" fill="#0c201c" fillOpacity="0.9"
                         fontFamily="Maven Pro, sans-serif" style={{ fontVariantNumeric: "tabular-nums" }}
                       >
                         {Math.round(nearV)}
