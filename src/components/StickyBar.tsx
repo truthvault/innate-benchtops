@@ -156,7 +156,23 @@ export function StickyBar({
             )}
           </div>
 
-          {/* Price (pushed right) */}
+          <div className="stickybar__lead" aria-label="Lead time">
+            ~{leadTimeWeeks}w
+          </div>
+          <button
+            type="button"
+            className="btn-primary stickybar__cta"
+            onClick={onRequest}
+            disabled={!canShare}
+            title={canShare ? undefined : "Pick a delivery location first"}
+          >
+            Share this quote
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {/* Price — far right, aligned with the right edge of the main content */}
           <button
             type="button"
             className={`stickybar__price stickybar__price--btn${expanded ? " is-expanded" : ""}`}
@@ -172,22 +188,6 @@ export function StickyBar({
             </span>
             <svg className="stickybar__chevron" viewBox="0 0 16 16" width="12" height="12" aria-hidden>
               <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
-          <div className="stickybar__lead" aria-label="Lead time">
-            ~{leadTimeWeeks}w
-          </div>
-          <button
-            type="button"
-            className="btn-primary stickybar__cta"
-            onClick={onRequest}
-            disabled={!canShare}
-            title={canShare ? undefined : "Pick a delivery location first"}
-          >
-            Share this quote
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
-              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
