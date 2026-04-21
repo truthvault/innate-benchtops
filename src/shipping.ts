@@ -18,6 +18,13 @@ export const SHIPPING = shippingJson as {
   chchMetroFlat: number;
   chchSurroundsFlat: number;
   upliftFactor: number;
+  /**
+   * Single global uplift applied to every non-zero freight cost at the
+   * shippingCost() boundary, on top of the existing per-destination
+   * `upliftFactor`. Lets us harden quotes across the board by nudging
+   * one number without touching destination anchors or rounding.
+   */
+  globalFreightMultiplier: number;
   refSmallKg: number;
   refLargeKg: number;
   basePackagingKg: number;
@@ -246,6 +253,18 @@ export function resolveLocation(coords: { lat: number; lng: number }): LocationR
 
 // ─── Public cost API ───────────────────────────────────────────────────────
 
+/**
+ * Final uplift + $5 re-round applied to every non-zero freight cost.
+ * Single audit point for "how much more expensive is the customer-facing
+ * rate than the pre-uplift model number" — change one constant in
+ * shipping.json and every rate shifts together.
+ */
+function applyGlobalUplift(cost: number): number {
+  if (cost <= 0) return cost;
+  const m = SHIPPING.globalFreightMultiplier ?? 1;
+  return Math.ceil((cost * m) / 5) * 5;
+}
+
 export function shippingCost(
   mode: ShippingMode,
   panels: Panel[],
@@ -258,16 +277,25 @@ export function shippingCost(
     case "pickup":
       return { cost: 0, label: "Pickup from workshop" };
     case "chchMetro":
-      return { cost: SHIPPING.chchMetroFlat, label: "Christchurch Metro" };
+      return {
+        cost: applyGlobalUplift(SHIPPING.chchMetroFlat),
+        label: "Christchurch Metro",
+      };
     case "chchSurrounds":
-      return { cost: SHIPPING.chchSurroundsFlat, label: "Christchurch surrounds" };
+      return {
+        cost: applyGlobalUplift(SHIPPING.chchSurroundsFlat),
+        label: "Christchurch surrounds",
+      };
     case "nationwide": {
       if (!mode.destination || !(mode.destination in SHIPPING.destinations)) {
         return { cost: 0, label: "Nationwide — select a destination" };
       }
       const kg = jobWeightKg(panels);
-      const cost = nationwideForDestination(mode.destination, kg);
-      return { cost, label: `Nationwide — ${mode.destination}` };
+      const base = nationwideForDestination(mode.destination, kg);
+      return {
+        cost: applyGlobalUplift(base),
+        label: `Nationwide — ${mode.destination}`,
+      };
     }
     case "other":
       return { cost: 0, label: "Freight to be confirmed" };

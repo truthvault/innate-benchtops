@@ -2,6 +2,7 @@
   "chchMetroFlat": 150,
   "chchSurroundsFlat": 220,
   "upliftFactor": 1.2,
+  "globalFreightMultiplier": 1.3,
   "refSmallKg": 20,
   "refLargeKg": 130,
   "basePackagingKg": 5,
