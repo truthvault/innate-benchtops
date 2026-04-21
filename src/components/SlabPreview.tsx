@@ -319,8 +319,9 @@ export function SlabPreview({
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${hNearLeft ? "left" : "right"} edge, ${Math.round(nearH)} mm. Click to edit.`}
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "h" })}
-                          textFill="#0c201c"
-                          textOpacity={0.92}
+                          textFill="#f3f0ee"
+                          textOpacity={1}
+                          variant="backlit"
                         />
                       )}
                       {/* vertical leader */}
@@ -347,8 +348,9 @@ export function SlabPreview({
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${vNearTop ? "front" : "back"} edge, ${Math.round(nearV)} mm. Click to edit.`}
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "v" })}
-                          textFill="#0c201c"
-                          textOpacity={0.92}
+                          textFill="#f3f0ee"
+                          textOpacity={1}
+                          variant="backlit"
                         />
                       )}
                     </g>
@@ -372,7 +374,7 @@ export function SlabPreview({
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "w" })}
                           textFill="#f3f0ee"
                           textOpacity={0.95}
-                          dark
+                          variant="dark"
                         />
                       )}
                       <text
@@ -394,7 +396,7 @@ export function SlabPreview({
                           onOpen={() => setEditing({ cutoutId: cutout.id, field: "d" })}
                           textFill="#f3f0ee"
                           textOpacity={0.95}
-                          dark
+                          variant="dark"
                         />
                       )}
                     </g>
@@ -509,13 +511,17 @@ function layout(panels: Panel[]) {
 }
 
 /**
- * Clickable number label. Renders a hit-plate (white on light backgrounds,
- * transparent on dark cutout interiors) plus the number, with a hover
- * affordance styled in styles.css.
+ * Clickable number label. Three visual variants:
+ *   - default:  cream plate for labels on the timber surface
+ *   - dark:     faint translucent chip for labels on charcoal cutouts
+ *   - backlit:  no plate, just text with a dark halo stroke. Reads like
+ *               a glowing number floating on the slab.
  */
+type NumHitVariant = "plate" | "dark" | "backlit";
+
 function NumHit({
   cx, cy, w, h, value, interactive, aria, onOpen,
-  textFill, textOpacity, dark,
+  textFill, textOpacity, variant = "plate",
 }: {
   cx: number; cy: number; w: number; h: number;
   value: number;
@@ -524,16 +530,20 @@ function NumHit({
   onOpen: () => void;
   textFill: string;
   textOpacity: number;
-  dark?: boolean;
+  variant?: NumHitVariant;
 }) {
   const handleOpen = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (!interactive) return;
     e.stopPropagation();
     onOpen();
   };
+  const variantClass =
+    variant === "dark" ? " cutout__num--dark"
+    : variant === "backlit" ? " cutout__num--backlit"
+    : "";
   return (
     <g
-      className={`cutout__num${dark ? " cutout__num--dark" : ""}`}
+      className={`cutout__num${variantClass}`}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : -1}
       aria-label={aria}
@@ -546,13 +556,30 @@ function NumHit({
         }
       }}
     >
-      <rect
-        className="cutout__num-plate"
-        x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={4}
-      />
+      {variant === "backlit" ? (
+        // Invisible hit target so the text's tiny bounding box isn't the
+        // only thing capturing clicks.
+        <rect
+          x={cx - w / 2} y={cy - h / 2} width={w} height={h}
+          fill="transparent" pointerEvents="all"
+        />
+      ) : (
+        <rect
+          className="cutout__num-plate"
+          x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={4}
+        />
+      )}
       <text
+        className="cutout__num-text"
         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-        fontSize="9.5" fill={textFill} fillOpacity={textOpacity}
+        fontSize="9.5"
+        fill={variant === "backlit" ? "#f3f0ee" : textFill}
+        fillOpacity={variant === "backlit" ? 1 : textOpacity}
+        stroke={variant === "backlit" ? "#0c201c" : undefined}
+        strokeWidth={variant === "backlit" ? 2.6 : undefined}
+        strokeLinejoin={variant === "backlit" ? "round" : undefined}
+        strokeOpacity={variant === "backlit" ? 0.9 : undefined}
+        paintOrder={variant === "backlit" ? "stroke fill" : undefined}
         fontFamily="Maven Pro, sans-serif" fontWeight={500}
         style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none", letterSpacing: "0.01em" }}
       >
