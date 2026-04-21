@@ -125,7 +125,7 @@ a { color: inherit; }
   flex: 1;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: .85rem;
   padding: 1.25rem;
   max-width: 1280px;
   width: 100%;
@@ -134,7 +134,7 @@ a { color: inherit; }
 
 @media (min-width: 960px) {
   .stage {
-    gap: 1.5rem;
+    gap: 1.15rem;
     padding: 2rem;
   }
 }
@@ -143,7 +143,7 @@ a { color: inherit; }
 
 .stage__controls {
   display: flex; flex-direction: column;
-  gap: 1.15rem;
+  gap: .95rem;
 }
 
 @media (min-width: 960px) {
@@ -151,7 +151,7 @@ a { color: inherit; }
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     grid-auto-rows: min-content;
-    gap: .9rem;
+    gap: .8rem;
     align-items: start;
   }
   .stage__controls .panel-editor {
