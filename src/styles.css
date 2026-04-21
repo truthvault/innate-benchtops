@@ -868,22 +868,24 @@ a { color: inherit; }
   filter: none;
 }
 
-/* Backlit leader labels: no plate, the text itself is light with a dark
-   halo stroke plus a soft diffused outer glow for contrast. Hover deepens
-   the halo so the number "lights up" a touch without moving. */
+/* Backlit leader labels: bold cream numerals with a heavy dark outline
+   plus a thick diffused outer glow for high-contrast readability at a
+   distance. Hover deepens everything one notch. */
 .cutout__num--backlit .cutout__num-text {
-  stroke-width: 3.6;
+  stroke-width: 5.5;
   stroke-opacity: 1;
   filter:
-    drop-shadow(0 0 1.6px rgba(12, 32, 28, 0.85))
-    drop-shadow(0 0 1px rgba(12, 32, 28, 0.9));
+    drop-shadow(0 0 3px rgba(12, 32, 28, 0.95))
+    drop-shadow(0 0 1.8px rgba(12, 32, 28, 1))
+    drop-shadow(0 0 1px rgba(12, 32, 28, 1));
   transition: stroke-width .18s var(--ease), filter .18s var(--ease);
 }
 .cutout__num--backlit:hover .cutout__num-text,
 .cutout__num--backlit:focus-visible .cutout__num-text {
-  stroke-width: 4.2;
+  stroke-width: 6.2;
   filter:
-    drop-shadow(0 0 2.2px rgba(12, 32, 28, 0.95))
+    drop-shadow(0 0 4px rgba(12, 32, 28, 1))
+    drop-shadow(0 0 2.4px rgba(12, 32, 28, 1))
     drop-shadow(0 0 1.2px rgba(12, 32, 28, 1));
 }
 
@@ -900,9 +902,9 @@ a { color: inherit; }
   background: #ffffff;
   color: var(--forest-ink);
   font-family: "Maven Pro", sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: .005em;
   text-align: center;
   outline: none;
