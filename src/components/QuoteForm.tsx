@@ -89,17 +89,26 @@ export function QuoteForm({
     }
   }
 
+  // Keep latest onClose accessible without re-triggering the setup effect.
+  // If onClose is in the dep array and the parent inlines the callback,
+  // every keystroke recreates it → effect re-runs → focus gets yanked back
+  // to the first field mid-typing.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     window.setTimeout(() => firstField.current?.focus(), 30);
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -313,10 +322,7 @@ export function QuoteForm({
                 />
               </label>
               <label className="field">
-                <span>
-                  Your email
-                  {path === "workshop" ? <em> (we'll copy you in)</em> : null}
-                </span>
+                <span>Your email</span>
                 <input
                   type="email"
                   value={c.email}
@@ -327,10 +333,8 @@ export function QuoteForm({
                 />
               </label>
               {path === "workshop" && (
-                <label className="field">
-                  <span>
-                    Also CC <em>(optional — partner, designer, builder…)</em>
-                  </span>
+                <label className="field field--wide">
+                  <span>Also CC <em>(optional)</em></span>
                   <input
                     type="email"
                     value={additionalEmail}
@@ -338,14 +342,15 @@ export function QuoteForm({
                     aria-invalid={touched && !addEmailOk}
                     autoComplete="email"
                     maxLength={200}
-                    placeholder="name@example.com"
+                    placeholder="partner, designer, builder — name@example.com"
                   />
                 </label>
               )}
 
               {path === "workshop" ? (
-                <fieldset className="preference-group field--wide">
-                  <legend>How should we follow up?</legend>
+                <div className="preference-group__wrap field--wide" role="group" aria-labelledby="pref-follow-up">
+                  <span id="pref-follow-up" className="preference-group__legend">How to follow up</span>
+                  <div className="preference-group">
                   <div className="contact-method" role="radiogroup" aria-label="Preferred contact method">
                     <label className={`contact-method__opt${contactMethod === "email" ? " is-on" : ""}`}>
                       <input
@@ -383,18 +388,19 @@ export function QuoteForm({
                         />
                       </label>
                       <label className="field">
-                        <span>Best time to call <em>(optional)</em></span>
+                        <span>Best time <em>(optional)</em></span>
                         <input
                           type="text"
                           value={bestTimeToCall}
                           onChange={(e) => setBestTimeToCall(e.target.value)}
-                          placeholder="e.g. weekdays after 5pm, or Saturday morning"
+                          placeholder="e.g. weekdays after 5pm"
                           maxLength={200}
                         />
                       </label>
                     </div>
                   )}
-                </fieldset>
+                  </div>
+                </div>
               ) : (
                 <label className="field">
                   <span>Phone <em>(optional)</em></span>
@@ -433,7 +439,7 @@ export function QuoteForm({
                   <label className="field field--wide">
                     <span>Note to {recipientName.split(" ")[0] || "them"} <em>(optional)</em></span>
                     <textarea
-                      rows={2}
+                      rows={1}
                       value={recipientNote}
                       onChange={(e) => setRecipientNote(e.target.value)}
                       placeholder="e.g. thinking about this for the kitchen — what do you reckon?"
@@ -443,10 +449,10 @@ export function QuoteForm({
                 </>
               )}
 
-              <label className="field field--wide">
-                <span>Anything else we should know? <em>(optional)</em></span>
+              <label className="field field--wide field--notes">
+                <span>Anything else? <em>(optional)</em></span>
                 <textarea
-                  rows={2}
+                  rows={1}
                   value={c.notes}
                   onChange={(e) => onCustomerPatch({ notes: e.target.value })}
                   placeholder={path === "workshop"
