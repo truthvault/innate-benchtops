@@ -1573,7 +1573,7 @@ a { color: inherit; }
 }
 
 /* The Delivery group allows its inner wrapper to grow with the address input */
-.stickybar__group:has(.stickybar__delivery) { flex: 1 1 260px; min-width: 0; }
+.stickybar__group:has(.stickybar__delivery) { flex: 1 1 340px; min-width: 0; max-width: 460px; }
 
 /* ---------- sticky bar inline controls (finish + delivery) ---------- */
 
@@ -1606,8 +1606,8 @@ a { color: inherit; }
   align-items: stretch;
   gap: .3rem;
   min-width: 220px;
-  max-width: 360px;
-  flex: 1 1 260px;
+  max-width: 460px;
+  flex: 1 1 340px;
 }
 
 /* (Pickup button styles removed — now uses shared .stickybar__finish segmented control) */
