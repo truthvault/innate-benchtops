@@ -23,6 +23,10 @@ export function StickyBar({
 }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // Ticks up each time the user hits Share while delivery isn't resolved —
+  // drives the address-search focus + a brief pulse on the delivery panel.
+  const [addressFocusSignal, setAddressFocusSignal] = useState(0);
+  const [isPrompting, setIsPrompting] = useState(false);
   const last = useRef(totals.grand);
 
   useEffect(() => {
@@ -67,6 +71,22 @@ export function StickyBar({
     // Enter a "delivering, no address yet" waypoint. Stays in this state
     // until the customer picks an address (→ chchMetro / nationwide / …).
     if (!isDelivered) onShippingChange({ kind: "delivering" });
+  };
+
+  const attemptShare = () => {
+    if (canShare) {
+      onRequest();
+      return;
+    }
+    // Invalid — show a hint above the button and flash the right surface.
+    setIsPrompting(true);
+    window.setTimeout(() => setIsPrompting(false), 2400);
+
+    if (hasBenchtop && (isUnset || isDelivering)) {
+      // Point them straight at the address input.
+      if (isUnset) onShippingChange({ kind: "delivering" });
+      setAddressFocusSignal((n) => n + 1);
+    }
   };
 
   const freightPrice =
@@ -148,7 +168,13 @@ export function StickyBar({
           {/* Delivery: Pickup / Delivered segmented + address input */}
           <div className="stickybar__group">
             <span className="stickybar__group-label">Delivery</span>
-            <div className={`stickybar__delivery${(isUnset || isDelivering) ? " is-needs-attention" : ""}`}>
+            <div
+              className={
+                "stickybar__delivery"
+                + ((isUnset || isDelivering) ? " is-needs-attention" : "")
+                + (isPrompting ? " is-prompting" : "")
+              }
+            >
               <div className="stickybar__finish" role="radiogroup" aria-label="Delivery method">
                 <button
                   type="button"
@@ -176,6 +202,7 @@ export function StickyBar({
                   shippingLabel={totals.shipping.label}
                   onChange={onShippingChange}
                   autoFocus={isDelivering}
+                  focusSignal={addressFocusSignal}
                 />
               )}
             </div>
@@ -184,18 +211,27 @@ export function StickyBar({
           <div className="stickybar__lead" aria-label="Lead time">
             Approx. {leadTimeWeeks}-week lead time
           </div>
-          <button
-            type="button"
-            className="btn-primary stickybar__cta"
-            onClick={onRequest}
-            disabled={!canShare}
-            title={shareDisabledReason}
-          >
-            Share this quote
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
-              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+          <div className="stickybar__cta-wrap">
+            {isPrompting && !canShare && (
+              <div className="stickybar__hint" role="status" aria-live="polite">
+                {!hasBenchtop
+                  ? "Add a benchtop (1200 × 250 mm or larger) first"
+                  : "Enter a delivery address or choose Pick up"}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn-primary stickybar__cta"
+              onClick={attemptShare}
+              aria-disabled={!canShare}
+              title={shareDisabledReason}
+            >
+              Share this quote
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
 
           {/* Price — far right, aligned with the right edge of the main content */}
           <button

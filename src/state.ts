@@ -61,20 +61,215 @@ export const normalizePanel = (p: Panel): Panel => ({
   cutouts: p.cutouts.map((c) => clampCutoutToPanel(c, p.length, p.width)),
 });
 
+// ─── Cutout overlap prevention ────────────────────────────────────────────
+
+interface CutoutBounds {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+}
+
+const cutoutBounds = (
+  c: Cutout,
+  panelLen: number,
+  panelWid: number,
+): CutoutBounds => {
+  const cx = c.pos * panelLen;
+  const cy = c.cross * panelWid;
+  return {
+    xMin: cx - c.widthMm / 2,
+    xMax: cx + c.widthMm / 2,
+    yMin: cy - c.depthMm / 2,
+    yMax: cy + c.depthMm / 2,
+  };
+};
+
+/** Strict overlap — cutouts can touch edge-to-edge without overlapping. */
+export const cutoutsOverlap = (
+  a: Cutout,
+  b: Cutout,
+  panelLen: number,
+  panelWid: number,
+): boolean => {
+  const ab = cutoutBounds(a, panelLen, panelWid);
+  const bb = cutoutBounds(b, panelLen, panelWid);
+  return (
+    ab.xMin < bb.xMax && ab.xMax > bb.xMin &&
+    ab.yMin < bb.yMax && ab.yMax > bb.yMin
+  );
+};
+
+const overlapsAny = (
+  c: Cutout,
+  others: Cutout[],
+  panelLen: number,
+  panelWid: number,
+): boolean =>
+  others.some((o) => cutoutsOverlap(c, o, panelLen, panelWid));
+
+const maxWidthForCutout = (
+  c: Cutout,
+  others: Cutout[],
+  panelLen: number,
+  panelWid: number,
+): number => {
+  const cx = c.pos * panelLen;
+  const cy = c.cross * panelWid;
+  const yMin = cy - c.depthMm / 2;
+  const yMax = cy + c.depthMm / 2;
+  let maxW = Math.max(50, panelLen - 20);
+  for (const o of others) {
+    const ob = cutoutBounds(o, panelLen, panelWid);
+    // Only constrains widthMm when the Y-intervals would overlap.
+    if (yMax > ob.yMin && yMin < ob.yMax) {
+      if (cx <= ob.xMin) {
+        maxW = Math.min(maxW, 2 * (ob.xMin - cx));
+      } else if (cx >= ob.xMax) {
+        maxW = Math.min(maxW, 2 * (cx - ob.xMax));
+      } else {
+        // Cutout centre is inside the other's X-range → no non-zero widthMm can avoid overlap.
+        maxW = 0;
+      }
+    }
+  }
+  return Math.max(50, maxW);
+};
+
+const maxDepthForCutout = (
+  c: Cutout,
+  others: Cutout[],
+  panelLen: number,
+  panelWid: number,
+): number => {
+  const cx = c.pos * panelLen;
+  const cy = c.cross * panelWid;
+  const xMin = cx - c.widthMm / 2;
+  const xMax = cx + c.widthMm / 2;
+  let maxD = Math.max(50, panelWid - 20);
+  for (const o of others) {
+    const ob = cutoutBounds(o, panelLen, panelWid);
+    if (xMax > ob.xMin && xMin < ob.xMax) {
+      if (cy <= ob.yMin) {
+        maxD = Math.min(maxD, 2 * (ob.yMin - cy));
+      } else if (cy >= ob.yMax) {
+        maxD = Math.min(maxD, 2 * (cy - ob.yMax));
+      } else {
+        maxD = 0;
+      }
+    }
+  }
+  return Math.max(50, maxD);
+};
+
+const slideCutoutToValid = (
+  target: Cutout,
+  current: Cutout,
+  others: Cutout[],
+  panelLen: number,
+  panelWid: number,
+): Cutout => {
+  if (!overlapsAny(target, others, panelLen, panelWid)) return target;
+
+  // Try moving along only one axis — lets the cutout slide along a wall
+  // when the user drags diagonally into a blocker.
+  const xOnly = clampCutoutToPanel({ ...target, cross: current.cross }, panelLen, panelWid);
+  const yOnly = clampCutoutToPanel({ ...target, pos: current.pos }, panelLen, panelWid);
+  const xValid = !overlapsAny(xOnly, others, panelLen, panelWid);
+  const yValid = !overlapsAny(yOnly, others, panelLen, panelWid);
+  if (xValid && yValid) {
+    const dx = Math.abs(target.pos - current.pos);
+    const dy = Math.abs(target.cross - current.cross);
+    return dx >= dy ? xOnly : yOnly;
+  }
+  if (xValid) return xOnly;
+  if (yValid) return yOnly;
+
+  // Both axes are blocked together — bisect from current toward target,
+  // returning the furthest valid step along the path.
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    const candidate = clampCutoutToPanel({
+      ...target,
+      pos: current.pos + (target.pos - current.pos) * mid,
+      cross: current.cross + (target.cross - current.cross) * mid,
+    }, panelLen, panelWid);
+    if (overlapsAny(candidate, others, panelLen, panelWid)) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return clampCutoutToPanel({
+    ...target,
+    pos: current.pos + (target.pos - current.pos) * lo,
+    cross: current.cross + (target.cross - current.cross) * lo,
+  }, panelLen, panelWid);
+};
+
+/**
+ * Constrain a proposed cutout change so it doesn't overlap siblings and
+ * stays inside the panel. Panel-edge clamping is applied too.
+ *
+ * - If size grew enough to cause overlap, shrink size to the max that fits.
+ * - If position change would cause overlap, slide along the nearest valid
+ *   path; fall back to `current` if everything is blocked.
+ */
+export const constrainCutout = (
+  proposed: Cutout,
+  current: Cutout,
+  others: Cutout[],
+  panelLen: number,
+  panelWid: number,
+): Cutout => {
+  let result = clampCutoutToPanel(proposed, panelLen, panelWid);
+  if (others.length === 0) return result;
+
+  // Clamp size first so the overlap check after has the intended size.
+  if (result.widthMm > current.widthMm) {
+    const maxW = maxWidthForCutout(
+      { ...result, depthMm: current.depthMm },
+      others, panelLen, panelWid,
+    );
+    if (result.widthMm > maxW) {
+      result = clampCutoutToPanel({ ...result, widthMm: maxW }, panelLen, panelWid);
+    }
+  }
+  if (result.depthMm > current.depthMm) {
+    const maxD = maxDepthForCutout(
+      { ...result, widthMm: current.widthMm },
+      others, panelLen, panelWid,
+    );
+    if (result.depthMm > maxD) {
+      result = clampCutoutToPanel({ ...result, depthMm: maxD }, panelLen, panelWid);
+    }
+  }
+
+  if (overlapsAny(result, others, panelLen, panelWid)) {
+    result = slideCutoutToValid(result, current, others, panelLen, panelWid);
+  }
+  return result;
+};
+
 export const DEFAULT_CUTOUT_WIDTH_MM = PRICING.cutoutDefaults.widthMm;
 export const DEFAULT_CUTOUT_DEPTH_MM = PRICING.cutoutDefaults.depthMm;
 
-export const blankPanel = (label = "Benchtop"): Panel => ({
+export const blankPanel = (label = ""): Panel => ({
   id: newId(),
   label,
-  length: 2400,
-  width: 650,
+  length: 1500,
+  width: 450,
   thickness: DEFAULT_THICKNESS_MM as Thickness,
   quantity: 1,
   cutouts: [],
 });
 
-export const defaultShipping = (): ShippingMode => ({ kind: "unset" });
+// Default to "delivering" (Deliver to me, no address yet) so the first
+// thing a customer sees on the sticky bar is a clear prompt to enter
+// their address. They can still switch to Pick up at any time.
+export const defaultShipping = (): ShippingMode => ({ kind: "delivering" });
 
 export const quoteNumber = (seed: string) => {
   const base = 648;

@@ -4,6 +4,7 @@ import { panelPriceMap, priceQuote, quoteHasBenchtop } from "./pricing";
 import type { ShippingMode } from "./shipping";
 import {
   blankPanel,
+  constrainCutout,
   defaultQuote,
   loadInitial,
   normalizePanel,
@@ -87,16 +88,22 @@ export default function App() {
     (panelId: string, cutoutId: string, updates: Partial<Cutout>) =>
       setQuote((q) => ({
         ...q,
-        panels: q.panels.map((p) =>
-          p.id !== panelId
-            ? p
-            : normalizePanel({
-                ...p,
-                cutouts: p.cutouts.map((c) =>
-                  c.id === cutoutId ? { ...c, ...updates } : c,
-                ),
-              }),
-        ),
+        panels: q.panels.map((p) => {
+          if (p.id !== panelId) return p;
+          const target = p.cutouts.find((c) => c.id === cutoutId);
+          if (!target) return p;
+          const others = p.cutouts.filter((c) => c.id !== cutoutId);
+          const proposed: Cutout = { ...target, ...updates };
+          const constrained = constrainCutout(
+            proposed, target, others, p.length, p.width,
+          );
+          return {
+            ...p,
+            cutouts: p.cutouts.map((c) =>
+              c.id === cutoutId ? constrained : c,
+            ),
+          };
+        }),
       })),
     [],
   );
@@ -123,6 +130,8 @@ export default function App() {
       </header>
 
       <main className="stage">
+        <h1 className="stage__headline">Design your own solid timber benchtop</h1>
+
         <div className="stage__preview">
           <SlabPreview
             panels={quote.panels}

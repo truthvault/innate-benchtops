@@ -9,6 +9,7 @@ import {
   type SpeciesId,
 } from "../species";
 import {
+  cutoutsOverlap,
   defaultCutoutDims,
   newId,
 } from "../state";
@@ -108,7 +109,7 @@ function PanelRow({
           ref={labelRef}
           className="panel-row__label"
           value={panel.label}
-          placeholder="Name this piece (optional), e.g. Kitchen island"
+          placeholder="Name this piece (optional)"
           onChange={(e) => onUpdate({ ...panel, label: e.target.value })}
         />
         <div className="panel-row__subtotal" aria-label="Cost for this panel">
@@ -291,20 +292,32 @@ function addCutout(panel: Panel): Cutout[] {
   const d = defaultCutoutDims();
   const maxW = Math.max(50, panel.length - 20);
   const maxD = Math.max(50, panel.width - 20);
-  const widthMm = Math.min(d.widthMm, maxW);
-  const depthMm = Math.min(d.depthMm, maxD);
-  const half = widthMm / 2 / panel.length;
-  const pos = Math.max(half, Math.min(1 - half, bestMid));
-  return [
-    ...panel.cutouts,
-    {
-      id: newId(),
-      pos,
-      cross: 0.5,
-      widthMm,
-      depthMm,
-    },
-  ];
+  const baseW = Math.min(d.widthMm, maxW);
+  const baseD = Math.min(d.depthMm, maxD);
+
+  // Look for a non-overlapping slot. Prefer the default size at the largest
+  // X gap, centre-cross. If that's blocked, try other cross positions; if
+  // still blocked, shrink the new cutout until it fits. Bail out gracefully
+  // if nothing fits so we never return an overlapping cutout.
+  const crossCandidates = [0.5, 0.3, 0.7, 0.2, 0.8];
+  const sizeFactors = [1.0, 0.75, 0.55, 0.4];
+  for (const factor of sizeFactors) {
+    const widthMm = Math.max(50, baseW * factor);
+    const depthMm = Math.max(50, baseD * factor);
+    const halfW = widthMm / 2 / panel.length;
+    const halfD = depthMm / 2 / panel.width;
+    const pos = Math.max(halfW, Math.min(1 - halfW, bestMid));
+    for (const c of crossCandidates) {
+      const cross = Math.max(halfD, Math.min(1 - halfD, c));
+      const candidate: Cutout = { id: newId(), pos, cross, widthMm, depthMm };
+      const overlaps = panel.cutouts.some((o) =>
+        cutoutsOverlap(candidate, o, panel.length, panel.width),
+      );
+      if (!overlaps) return [...panel.cutouts, candidate];
+    }
+  }
+  // No room for another cutout at any reasonable size — leave the panel alone.
+  return panel.cutouts;
 }
 
 // ─── NumField: transient text during editing, commit on blur/Enter ────────

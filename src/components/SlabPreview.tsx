@@ -763,7 +763,7 @@ export function SlabPreview({
                 )
               ) : (
                 <PanelDimHit
-                  cx={midX} cy={dimY} w={72} h={22}
+                  cx={midX} cy={dimY} w={50} h={22}
                   value={b.panel.length}
                   interactive={!!onPanelChange}
                   aria={`Panel length, ${b.panel.length} mm. Click to edit.`}
@@ -803,7 +803,7 @@ export function SlabPreview({
               ) : (
                 <g transform={`translate(${dimX} ${midY}) rotate(-90)`}>
                   <PanelDimHit
-                    cx={0} cy={0} w={72} h={22}
+                    cx={0} cy={0} w={50} h={22}
                     value={b.panel.width}
                     interactive={!!onPanelChange}
                     aria={`Panel width, ${b.panel.width} mm. Click to edit.`}
@@ -967,9 +967,9 @@ function PanelDimHit({
         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
         fontSize="14" fill="#0c201c" fillOpacity="0.9"
         fontFamily="Maven Pro, sans-serif" fontWeight="500"
-        style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none" }}
+        style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none", letterSpacing: "0.01em" }}
       >
-        {value} mm
+        {value}
       </text>
     </g>
   );

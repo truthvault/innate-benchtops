@@ -139,6 +139,23 @@ a { color: inherit; }
   }
 }
 
+/* Headline above the preview — simple, refined, not shouty. Sizes fluidly
+   from mobile to desktop without dominating the viewport. */
+.stage__headline {
+  margin: .15rem 0 -.25rem;
+  text-align: center;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -.015em;
+  color: var(--forest-ink);
+  line-height: 1.18;
+}
+@media (min-width: 960px) {
+  .stage__headline {
+    margin: .4rem 0 -.1rem;
+  }
+}
+
 .stage__preview { position: relative; }
 
 .stage__controls {
@@ -585,6 +602,48 @@ a { color: inherit; }
 .stickybar__cta {
   display: inline-flex; align-items: center; gap: .4rem;
   white-space: nowrap;
+}
+
+/* Wrapper so the prompt tooltip can anchor above the Share button. */
+.stickybar__cta-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+/* Inline hint that appears above the Share button when the user clicks
+   it before delivery is resolved. Matches the forest palette, dark chip
+   so it reads against the bar's cream backdrop. */
+.stickybar__hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  background: var(--forest-ink);
+  color: #f3f0ee;
+  font-size: .78rem;
+  font-weight: 500;
+  letter-spacing: .005em;
+  padding: .45rem .7rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(12, 32, 28, 0.22);
+  pointer-events: none;
+  animation: stickybar-hint-in .22s var(--ease);
+  z-index: 2;
+}
+.stickybar__hint::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--forest-ink);
+}
+@keyframes stickybar-hint-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* ---------- buttons ---------- */
@@ -1993,6 +2052,21 @@ a { color: inherit; }
   box-shadow: 0 0 0 3px rgba(22, 56, 50, 0.08);
 }
 
+/* One-shot pulse when the user hits Share without resolving delivery —
+   firms up the forest halo, then settles back to the normal attention
+   state so the prompt feels like a deliberate nudge. */
+@keyframes stickybar-delivery-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(22, 56, 50, 0.0); }
+  40%  { box-shadow: 0 0 0 6px rgba(22, 56, 50, 0.18); }
+  100% { box-shadow: 0 0 0 3px rgba(22, 56, 50, 0.08); }
+}
+.stickybar__delivery.is-prompting .addr-search__input {
+  animation: stickybar-delivery-pulse 1.3s var(--ease);
+}
+.stickybar__delivery.is-prompting .stickybar__finish-btn {
+  animation: stickybar-delivery-pulse 1.3s var(--ease);
+}
+
 .addr-search__dropdown {
   position: absolute;
   left: 0; right: 0; bottom: calc(100% + 4px);
@@ -2066,11 +2140,13 @@ a { color: inherit; }
   animation: fadeIn .2s var(--ease);
 }
 
-.stickybar__cta:disabled {
-  opacity: .5;
-  cursor: not-allowed;
+.stickybar__cta:disabled,
+.stickybar__cta[aria-disabled="true"] {
+  opacity: .55;
+  cursor: pointer;
 }
-.stickybar__cta:disabled:hover {
+.stickybar__cta:disabled:hover,
+.stickybar__cta[aria-disabled="true"]:hover {
   background: var(--forest);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -2078,15 +2154,44 @@ a { color: inherit; }
     0 6px 16px rgba(22, 56, 50, 0.26);
 }
 
-/* Mobile: let items wrap into two lines gracefully */
+/* Mobile layout: pack Finish + Delivery onto row 1, and CTA + Price onto
+   row 2. The desktop base has min-width: 220px on .stickybar__delivery
+   plus flex-basis: 340, which forces Delivery onto its own row on narrow
+   phones — the overrides below collapse those so the two groups can sit
+   side by side. */
 @media (max-width: 720px) {
   .stickybar__inner {
     flex-wrap: wrap;
     padding: .5rem 1rem;
-    gap: .5rem .75rem;
+    gap: .5rem .6rem;
   }
   .stickybar__lead { display: none; }
-  .stickybar__delivery { max-width: none; flex: 1 1 180px; }
+
+  .stickybar__group:not(:has(.stickybar__delivery)) {
+    flex: 0 0 auto;
+  }
+  .stickybar__group:has(.stickybar__delivery) {
+    flex: 1 1 140px;
+    min-width: 0;
+    max-width: none;
+  }
+  .stickybar__delivery {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .stickybar__cta-wrap { flex: 1 1 auto; }
+  .stickybar__cta { flex: 1 1 auto; justify-content: center; width: 100%; }
+  .stickybar__price--btn { flex: 0 0 auto; }
+
+  /* Hint can wrap on narrow screens so a longer message doesn't overflow. */
+  .stickybar__hint {
+    white-space: normal;
+    max-width: min(85vw, 320px);
+    text-align: center;
+    line-height: 1.35;
+  }
 }
 
 /* ---------- reduced motion ---------- */

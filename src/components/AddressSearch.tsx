@@ -18,6 +18,10 @@ interface Props {
   onChange: (mode: ShippingMode) => void;
   /** Focus input when the combobox mounts */
   autoFocus?: boolean;
+  /** Incrementing counter — whenever it changes, the input imperatively
+   *  focuses. Used by the sticky bar when the user clicks Share without an
+   *  address, to jump their cursor straight here. */
+  focusSignal?: number;
 }
 
 /**
@@ -27,7 +31,7 @@ interface Props {
  * nearest freight zone and ShippingMode is updated.
  */
 export function AddressSearch({
-  value, shippingCost: cost, shippingLabel, onChange, autoFocus,
+  value, shippingCost: cost, shippingLabel, onChange, autoFocus, focusSignal,
 }: Props) {
   const [q, setQ] = useState<string>(() => displayFor(value));
   const [preds, setPreds] = useState<Prediction[]>([]);
@@ -49,6 +53,17 @@ export function AddressSearch({
       return () => window.clearTimeout(t);
     }
   }, [autoFocus]);
+
+  // Re-focus whenever focusSignal flips (e.g. user hit Share without an
+  // address). Ignore the initial 0-value render.
+  useEffect(() => {
+    if (focusSignal === undefined || focusSignal === 0) return;
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 30);
+    return () => window.clearTimeout(t);
+  }, [focusSignal]);
 
   // Sync prop → input when the value changes externally (adjust-state-during-render pattern)
   const [prevValue, setPrevValue] = useState<ShippingMode>(value);
