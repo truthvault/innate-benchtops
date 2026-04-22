@@ -285,8 +285,15 @@ function addCutout(panel: Panel): Cutout[] {
       bestMid = (points[i] + points[i + 1]) / 2;
     }
   }
+  // Cap the default dims to whatever actually fits inside this panel. If
+  // the panel was resized smaller than the configured defaults (400 × 500),
+  // shrink the new cutout accordingly — with a 20mm margin from each edge.
   const d = defaultCutoutDims();
-  const half = d.widthMm / 2 / panel.length;
+  const maxW = Math.max(50, panel.length - 20);
+  const maxD = Math.max(50, panel.width - 20);
+  const widthMm = Math.min(d.widthMm, maxW);
+  const depthMm = Math.min(d.depthMm, maxD);
+  const half = widthMm / 2 / panel.length;
   const pos = Math.max(half, Math.min(1 - half, bestMid));
   return [
     ...panel.cutouts,
@@ -294,8 +301,8 @@ function addCutout(panel: Panel): Cutout[] {
       id: newId(),
       pos,
       cross: 0.5,
-      widthMm: d.widthMm,
-      depthMm: d.depthMm,
+      widthMm,
+      depthMm,
     },
   ];
 }

@@ -1,6 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
-import { findSpecies, type FinishId, type SpeciesId } from "../species";
+import {
+  findSpecies,
+  MIN_LENGTH_MM,
+  MIN_WIDTH_MM,
+  type FinishId,
+  type SpeciesId,
+} from "../species";
 import { Offcut } from "./Offcut";
 
 interface Props {
@@ -8,6 +14,8 @@ interface Props {
   species: SpeciesId;
   finish: FinishId;
   onCutoutChange?: (panelId: string, cutoutId: string, updates: Partial<Cutout>) => void;
+  /** Narrow patch for on-canvas dim editing (click a label, or drag an edge/corner). */
+  onPanelChange?: (panelId: string, updates: Partial<Pick<Panel, "length" | "width">>) => void;
 }
 
 const VIEW = { w: 1000, h: 356 };
@@ -17,6 +25,20 @@ const MARGIN_BOTTOM = 14;
 const MARGIN_LEFT = 42;
 const DIM_RESERVE = 22;
 const GAP_MM = 80;
+
+// Resize handles: invisible rects layered on the panel edges/corners.
+// Thicker on touch, but 10 SVG units is fine on desktop.
+const EDGE_HIT = 10;
+const CORNER_HIT = 18;
+
+// Panel dimensions click to the nearest centimetre — same step that
+// PanelEditor's NumField uses.
+const PANEL_SNAP_MM = 10;
+
+// Matches PanelEditor's NumField max values. Floors (MIN_LENGTH_MM /
+// MIN_WIDTH_MM) come from species.ts.
+const PANEL_MAX_LENGTH_MM = 4800;
+const PANEL_MAX_WIDTH_MM = 2000;
 
 interface Box {
   x: number; y: number; w: number; h: number;
@@ -40,28 +62,82 @@ interface DragState {
   pointerId: number;
 }
 
+type ResizeHandle = "e" | "w" | "n" | "s" | "ne" | "nw" | "se" | "sw";
+
+interface PanelResizeState {
+  panelId: string;
+  pointerId: number;
+  handle: ResizeHandle;
+  startLenMm: number;
+  startWidthMm: number;
+  /** Drag start in SVG local coordinates (not client pixels) — the SVG's
+   *  display size may differ from its viewBox size, so we convert via the
+   *  current screen CTM. */
+  startSvgX: number;
+  startSvgY: number;
+  /** Panel's SVG-coord position + size at drag start. Used to anchor the
+   *  opposite edge during the drag so absolute-positioning math is stable. */
+  startBoxX: number;
+  startBoxY: number;
+  startBoxW: number;
+  startBoxH: number;
+  /** SVG-coord units per mm at drag start. Held constant for the whole drag
+   *  so layout() re-centering / re-scaling doesn't break cursor tracking. */
+  scale: number;
+  /** Last emitted dims so we only call onPanelChange when the snapped value changes. */
+  lastLenMm: number;
+  lastWidthMm: number;
+}
+
 const clamp = (n: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, n));
 
-type EditField = "h" | "v" | "w" | "d";
-interface EditingState {
-  cutoutId: string;
-  field: EditField;
-}
+const snap = (mm: number, step: number = PANEL_SNAP_MM) =>
+  Math.round(mm / step) * step;
+
+type CutoutField = "h" | "v" | "w" | "d";
+type PanelField = "length" | "width";
+
+type EditingState =
+  | { kind: "cutout"; cutoutId: string; field: CutoutField }
+  | { kind: "panel"; panelId: string; field: PanelField };
 
 export function SlabPreview({
-  panels, species, finish, onCutoutChange,
+  panels, species, finish, onCutoutChange, onPanelChange,
 }: Props) {
   const sp = findSpecies(species);
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const panelResizeRef = useRef<PanelResizeState | null>(null);
   const [editing, setEditing] = useState<EditingState | null>(null);
+  // Bumped on drag start/end so the layout-freeze logic below re-runs at
+  // those boundaries even when `panels` hasn't changed yet.
+  const [, setDragTick] = useState(0);
 
-  const { boxes, scale } = useMemo(() => layout(panels), [panels]);
+  const baseLayout = useMemo(() => layout(panels), [panels]);
+  // During an active panel resize, pin the panel's on-screen position to
+  // where it was at drag start, and use the cached scale so visual growth
+  // tracks 1:1 with mm growth. Non-active panels stay where they are.
+  // This is the piece that makes absolute-positioning in the move handler
+  // actually look right on screen.
+  const active = panelResizeRef.current;
+  const boxes: Box[] = active
+    ? baseLayout.boxes.map((b) => {
+        if (b.panel.id !== active.panelId) return b;
+        return {
+          x: active.startBoxX,
+          y: active.startBoxY,
+          w: b.panel.length * active.scale,
+          h: b.panel.width * active.scale,
+          panel: b.panel,
+        };
+      })
+    : baseLayout.boxes;
+  const scale = active ? active.scale : baseLayout.scale;
 
   const filterId = finish === "raw" ? "url(#finish-raw)" : undefined;
 
-  const commitEdit = (placed: PlacedCutout, field: EditField, raw: string) => {
+  const commitEdit = (placed: PlacedCutout, field: CutoutField, raw: string) => {
     if (!onCutoutChange) { setEditing(null); return; }
     const n = Math.round(Number(raw));
     if (!Number.isFinite(n)) { setEditing(null); return; }
@@ -109,6 +185,127 @@ export function SlabPreview({
     setEditing(null);
   };
 
+  const commitPanelEdit = (panelId: string, field: PanelField, raw: string) => {
+    if (!onPanelChange) { setEditing(null); return; }
+    const parsed = Math.round(Number(raw));
+    if (!Number.isFinite(parsed)) { setEditing(null); return; }
+    const snapped = snap(parsed);
+    const clamped = field === "length"
+      ? clamp(snapped, MIN_LENGTH_MM, PANEL_MAX_LENGTH_MM)
+      : clamp(snapped, MIN_WIDTH_MM, PANEL_MAX_WIDTH_MM);
+    onPanelChange(panelId, { [field]: clamped });
+    setEditing(null);
+  };
+
+  // Convert a pointer event's client coords to SVG-viewBox local coords.
+  // This is the only way to get a stable mm delta when the SVG is displayed
+  // at a size different from its viewBox (which is the common case — the
+  // preview stretches to container width).
+  const clientToSvg = (clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    return pt.matrixTransform(ctm.inverse());
+  };
+
+  const onPanelResizeDown = (
+    e: React.PointerEvent<SVGRectElement>,
+    box: Box,
+    handle: ResizeHandle,
+  ) => {
+    if (!onPanelChange) return;
+    // A cutout drag must not be in flight — if it is, let it finish first.
+    if (dragRef.current) return;
+    e.stopPropagation();
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const local = clientToSvg(e.clientX, e.clientY);
+    if (!local) return;
+    panelResizeRef.current = {
+      panelId: box.panel.id,
+      pointerId: e.pointerId,
+      handle,
+      startLenMm: box.panel.length,
+      startWidthMm: box.panel.width,
+      startSvgX: local.x,
+      startSvgY: local.y,
+      startBoxX: box.x,
+      startBoxY: box.y,
+      startBoxW: box.w,
+      startBoxH: box.h,
+      scale,
+      lastLenMm: box.panel.length,
+      lastWidthMm: box.panel.width,
+    };
+    // Tick so the render layer picks up the frozen layout immediately.
+    setDragTick((n) => n + 1);
+  };
+
+  const onPanelResizeMove = (e: React.PointerEvent<SVGRectElement>) => {
+    const s = panelResizeRef.current;
+    if (!s || !onPanelChange) return;
+    if (e.pointerId !== s.pointerId) return;
+
+    const local = clientToSvg(e.clientX, e.clientY);
+    if (!local) return;
+
+    // Absolute positioning from the opposite edge, not cursor deltas. This
+    // is what makes the drag track even as the panel mm dims change: the
+    // anchor edge is pinned in SVG coords at its drag-start position, and
+    // the dragged edge follows the cursor. Layout rescaling is frozen in
+    // render too (see the active-resize override below), so the anchor
+    // really does stay put on screen.
+    let targetLen = s.startLenMm;
+    let targetWid = s.startWidthMm;
+
+    if (s.handle.includes("e")) {
+      // E drag: W edge pinned at startBoxX, E edge follows cursor.
+      targetLen = (local.x - s.startBoxX) / s.scale;
+    } else if (s.handle.includes("w")) {
+      // W drag: E edge pinned at startBoxX + startBoxW, W edge follows cursor.
+      targetLen = (s.startBoxX + s.startBoxW - local.x) / s.scale;
+    }
+
+    if (s.handle.includes("s")) {
+      targetWid = (local.y - s.startBoxY) / s.scale;
+    } else if (s.handle.includes("n")) {
+      targetWid = (s.startBoxY + s.startBoxH - local.y) / s.scale;
+    }
+
+    const nextLen = clamp(snap(targetLen), MIN_LENGTH_MM, PANEL_MAX_LENGTH_MM);
+    const nextWid = clamp(snap(targetWid), MIN_WIDTH_MM, PANEL_MAX_WIDTH_MM);
+
+    const touchesH = s.handle.includes("e") || s.handle.includes("w");
+    const touchesV = s.handle.includes("n") || s.handle.includes("s");
+
+    const updates: Partial<Pick<Panel, "length" | "width">> = {};
+    if (touchesH && nextLen !== s.lastLenMm) {
+      updates.length = nextLen;
+      s.lastLenMm = nextLen;
+    }
+    if (touchesV && nextWid !== s.lastWidthMm) {
+      updates.width = nextWid;
+      s.lastWidthMm = nextWid;
+    }
+    if (updates.length !== undefined || updates.width !== undefined) {
+      onPanelChange(s.panelId, updates);
+    }
+  };
+
+  const onPanelResizeEnd = (e: React.PointerEvent<SVGRectElement>) => {
+    const s = panelResizeRef.current;
+    if (!s) return;
+    if (e.pointerId !== s.pointerId) return;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    panelResizeRef.current = null;
+    // Force a re-render so the render branch below un-freezes the layout.
+    setDragTick((n) => n + 1);
+  };
+
   const pointerToPanel = (e: React.PointerEvent, box: Box, cutout: Cutout) => {
     const svg = svgRef.current;
     if (!svg) return null;
@@ -131,6 +328,8 @@ export function SlabPreview({
     cutout: Cutout,
   ) => {
     if (!onCutoutChange) return;
+    // Panel-edge/corner resize wins if one is in flight.
+    if (panelResizeRef.current) return;
     e.stopPropagation();
     e.preventDefault();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -246,6 +445,105 @@ export function SlabPreview({
                 strokeWidth="1.4"
               />
 
+              {/* Panel resize handles — rendered below cutouts so cutouts
+                  still catch their own pointer events. Edges sit on the
+                  panel border (half outside, half inside); corners are
+                  layered on top of edges so they win at the intersection.
+                  Mid-edge "grip" dots and corner dots give subtle
+                  always-visible affordance. */}
+              {onPanelChange && (() => {
+                const midX = b.x + b.w / 2;
+                const midY = b.y + b.h / 2;
+                return (
+                  <g className="panel-resize">
+                    {/* ── Edges (hit-areas) ─────────────────────────── */}
+                    <rect
+                      className="panel-resize__edge panel-resize__edge--n"
+                      x={b.x} y={b.y - EDGE_HIT / 2}
+                      width={b.w} height={EDGE_HIT}
+                      onPointerDown={(e) => onPanelResizeDown(e, b, "n")}
+                      onPointerMove={onPanelResizeMove}
+                      onPointerUp={onPanelResizeEnd}
+                      onPointerCancel={onPanelResizeEnd}
+                    />
+                    <rect
+                      className="panel-resize__edge panel-resize__edge--s"
+                      x={b.x} y={b.y + b.h - EDGE_HIT / 2}
+                      width={b.w} height={EDGE_HIT}
+                      onPointerDown={(e) => onPanelResizeDown(e, b, "s")}
+                      onPointerMove={onPanelResizeMove}
+                      onPointerUp={onPanelResizeEnd}
+                      onPointerCancel={onPanelResizeEnd}
+                    />
+                    <rect
+                      className="panel-resize__edge panel-resize__edge--w"
+                      x={b.x - EDGE_HIT / 2} y={b.y}
+                      width={EDGE_HIT} height={b.h}
+                      onPointerDown={(e) => onPanelResizeDown(e, b, "w")}
+                      onPointerMove={onPanelResizeMove}
+                      onPointerUp={onPanelResizeEnd}
+                      onPointerCancel={onPanelResizeEnd}
+                    />
+                    <rect
+                      className="panel-resize__edge panel-resize__edge--e"
+                      x={b.x + b.w - EDGE_HIT / 2} y={b.y}
+                      width={EDGE_HIT} height={b.h}
+                      onPointerDown={(e) => onPanelResizeDown(e, b, "e")}
+                      onPointerMove={onPanelResizeMove}
+                      onPointerUp={onPanelResizeEnd}
+                      onPointerCancel={onPanelResizeEnd}
+                    />
+
+                    {/* ── Mid-edge grip dots (3 each, matching cutout vibe) ── */}
+                    <g className="panel-resize__grip" aria-hidden pointerEvents="none">
+                      {/* N: 3 dots arranged horizontally at top-center */}
+                      <circle cx={midX - 5} cy={b.y} r={1.1} />
+                      <circle cx={midX}     cy={b.y} r={1.1} />
+                      <circle cx={midX + 5} cy={b.y} r={1.1} />
+                      {/* S: 3 dots at bottom-center */}
+                      <circle cx={midX - 5} cy={b.y + b.h} r={1.1} />
+                      <circle cx={midX}     cy={b.y + b.h} r={1.1} />
+                      <circle cx={midX + 5} cy={b.y + b.h} r={1.1} />
+                      {/* W: 3 dots arranged vertically at left-middle */}
+                      <circle cx={b.x} cy={midY - 5} r={1.1} />
+                      <circle cx={b.x} cy={midY}     r={1.1} />
+                      <circle cx={b.x} cy={midY + 5} r={1.1} />
+                      {/* E: 3 dots at right-middle */}
+                      <circle cx={b.x + b.w} cy={midY - 5} r={1.1} />
+                      <circle cx={b.x + b.w} cy={midY}     r={1.1} />
+                      <circle cx={b.x + b.w} cy={midY + 5} r={1.1} />
+                    </g>
+
+                    {/* ── Corners (hit-area + always-visible dot) ───────── */}
+                    {(["nw", "ne", "sw", "se"] as const).map((h) => {
+                      const cx = h.includes("w") ? b.x : b.x + b.w;
+                      const cy = h.includes("n") ? b.y : b.y + b.h;
+                      return (
+                        <g key={h} className={`panel-resize__corner panel-resize__corner--${h}`}>
+                          <rect
+                            x={cx - CORNER_HIT / 2}
+                            y={cy - CORNER_HIT / 2}
+                            width={CORNER_HIT}
+                            height={CORNER_HIT}
+                            fill="transparent"
+                            onPointerDown={(e) => onPanelResizeDown(e, b, h)}
+                            onPointerMove={onPanelResizeMove}
+                            onPointerUp={onPanelResizeEnd}
+                            onPointerCancel={onPanelResizeEnd}
+                          />
+                          <circle
+                            className="panel-resize__dot"
+                            cx={cx} cy={cy} r={2.6}
+                            aria-hidden
+                            pointerEvents="none"
+                          />
+                        </g>
+                      );
+                    })}
+                  </g>
+                );
+              })()}
+
               {placed.map((pc, idx) => {
                 const { cutout, rect, dLeft, dRight, dTop, dBottom } = pc;
                 const cx = rect.x + rect.w / 2;
@@ -310,18 +608,22 @@ export function SlabPreview({
                           stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
                         />
                       </g>
-                      {editing?.cutoutId === cutout.id && editing.field === "h" ? (
-                        renderEdit(pc, "h", hLabelX - 34, cy - 16, 68, 32, Math.round(nearH), commitEdit, setEditing)
+                      {editing?.kind === "cutout" && editing.cutoutId === cutout.id && editing.field === "h" ? (
+                        renderEdit(
+                          hLabelX - 34, cy - 16, 68, 32, Math.round(nearH),
+                          (raw) => commitEdit(pc, "h", raw),
+                          () => setEditing(null),
+                        )
                       ) : (
                         <NumHit
-                          cx={hLabelX} cy={cy} w={56} h={26}
+                          cx={hLabelX} cy={cy} w={48} h={22}
                           value={Math.round(nearH)}
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${hNearLeft ? "left" : "right"} edge, ${Math.round(nearH)} mm. Click to edit.`}
-                          onOpen={() => setEditing({ cutoutId: cutout.id, field: "h" })}
-                          textFill="#f3f0ee"
-                          textOpacity={1}
-                          variant="backlit"
+                          onOpen={() => setEditing({ kind: "cutout", cutoutId: cutout.id, field: "h" })}
+                          textFill="#0c201c"
+                          textOpacity={0.92}
+                          variant="plate"
                         />
                       )}
                       {/* vertical leader */}
@@ -339,18 +641,22 @@ export function SlabPreview({
                           stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1"
                         />
                       </g>
-                      {editing?.cutoutId === cutout.id && editing.field === "v" ? (
-                        renderEdit(pc, "v", cx - 34, vLabelY - 16, 68, 32, Math.round(nearV), commitEdit, setEditing)
+                      {editing?.kind === "cutout" && editing.cutoutId === cutout.id && editing.field === "v" ? (
+                        renderEdit(
+                          cx - 34, vLabelY - 16, 68, 32, Math.round(nearV),
+                          (raw) => commitEdit(pc, "v", raw),
+                          () => setEditing(null),
+                        )
                       ) : (
                         <NumHit
-                          cx={cx} cy={vLabelY} w={56} h={26}
+                          cx={cx} cy={vLabelY} w={48} h={22}
                           value={Math.round(nearV)}
                           interactive={!!onCutoutChange}
                           aria={`Distance from ${vNearTop ? "front" : "back"} edge, ${Math.round(nearV)} mm. Click to edit.`}
-                          onOpen={() => setEditing({ cutoutId: cutout.id, field: "v" })}
-                          textFill="#f3f0ee"
-                          textOpacity={1}
-                          variant="backlit"
+                          onOpen={() => setEditing({ kind: "cutout", cutoutId: cutout.id, field: "v" })}
+                          textFill="#0c201c"
+                          textOpacity={0.92}
+                          variant="plate"
                         />
                       )}
                     </g>
@@ -363,40 +669,49 @@ export function SlabPreview({
                       className="cutout__size"
                       onPointerDown={(e) => { if (onCutoutChange) e.stopPropagation(); }}
                     >
-                      {editing?.cutoutId === cutout.id && editing.field === "w" ? (
-                        renderEdit(pc, "w", cx - 62, cy - 16, 54, 32, cutout.widthMm, commitEdit, setEditing)
+                      {editing?.kind === "cutout" && editing.cutoutId === cutout.id && editing.field === "w" ? (
+                        renderEdit(
+                          cx - 62, cy - 16, 54, 32, cutout.widthMm,
+                          (raw) => commitEdit(pc, "w", raw),
+                          () => setEditing(null),
+                        )
                       ) : (
                         <NumHit
-                          cx={cx - 28} cy={cy} w={50} h={28}
+                          cx={cx - 26} cy={cy} w={44} h={22}
                           value={cutout.widthMm}
                           interactive={!!onCutoutChange}
                           aria={`Cutout width, ${cutout.widthMm} mm. Click to edit.`}
-                          onOpen={() => setEditing({ cutoutId: cutout.id, field: "w" })}
-                          textFill="#f3f0ee"
-                          textOpacity={1}
-                          variant="backlit"
+                          onOpen={() => setEditing({ kind: "cutout", cutoutId: cutout.id, field: "w" })}
+                          textFill="#0c201c"
+                          textOpacity={0.92}
+                          variant="plate"
                         />
                       )}
                       <text
                         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-                        fontSize="15" fill="#0c201c" fillOpacity="0.6"
-                        fontFamily="Maven Pro, sans-serif" aria-hidden fontWeight={700}
+                        dy="0.04em"
+                        fontSize="12" fill="#0c201c" fillOpacity="0.45"
+                        fontFamily="Maven Pro, sans-serif" aria-hidden fontWeight={500}
                         style={{ pointerEvents: "none" }}
                       >
                         ×
                       </text>
-                      {editing?.cutoutId === cutout.id && editing.field === "d" ? (
-                        renderEdit(pc, "d", cx + 8, cy - 16, 54, 32, cutout.depthMm, commitEdit, setEditing)
+                      {editing?.kind === "cutout" && editing.cutoutId === cutout.id && editing.field === "d" ? (
+                        renderEdit(
+                          cx + 8, cy - 16, 54, 32, cutout.depthMm,
+                          (raw) => commitEdit(pc, "d", raw),
+                          () => setEditing(null),
+                        )
                       ) : (
                         <NumHit
-                          cx={cx + 28} cy={cy} w={50} h={28}
+                          cx={cx + 26} cy={cy} w={44} h={22}
                           value={cutout.depthMm}
                           interactive={!!onCutoutChange}
                           aria={`Cutout depth, ${cutout.depthMm} mm. Click to edit.`}
-                          onOpen={() => setEditing({ cutoutId: cutout.id, field: "d" })}
-                          textFill="#f3f0ee"
-                          textOpacity={1}
-                          variant="backlit"
+                          onOpen={() => setEditing({ kind: "cutout", cutoutId: cutout.id, field: "d" })}
+                          textFill="#0c201c"
+                          textOpacity={0.92}
+                          variant="plate"
                         />
                       )}
                     </g>
@@ -423,53 +738,79 @@ export function SlabPreview({
           );
         })}
 
-        {/* per-panel length dimension (below each panel) */}
+        {/* per-panel length dimension (below each panel) — clickable to edit. */}
         {boxes.map((b) => {
           const dimY = b.y + b.h + 14;
           const midX = b.x + b.w / 2;
+          const isEditing = editing?.kind === "panel"
+            && editing.panelId === b.panel.id
+            && editing.field === "length";
           return (
-            <g key={`dim-h-${b.panel.id}`} className="panel-dim" aria-hidden>
-              <line x1={b.x} y1={dimY} x2={b.x + b.w} y2={dimY}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <line x1={b.x} y1={dimY - 4} x2={b.x} y2={dimY + 4}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <line x1={b.x + b.w} y1={dimY - 4} x2={b.x + b.w} y2={dimY + 4}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <rect x={midX - 32} y={dimY - 10} width={64} height={20} rx={3}
-                fill="#ffffff" fillOpacity="0.96" />
-              <text x={midX} y={dimY} textAnchor="middle" dominantBaseline="middle"
-                fontSize="14" fill="#0c201c" fillOpacity="0.9"
-                fontFamily="Maven Pro, sans-serif" fontWeight="500"
-                style={{ fontVariantNumeric: "tabular-nums" }}>
-                {b.panel.length} mm
-              </text>
+            <g key={`dim-h-${b.panel.id}`} className="panel-dim">
+              <g aria-hidden>
+                <line x1={b.x} y1={dimY} x2={b.x + b.w} y2={dimY}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
+                <line x1={b.x} y1={dimY - 4} x2={b.x} y2={dimY + 4}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
+                <line x1={b.x + b.w} y1={dimY - 4} x2={b.x + b.w} y2={dimY + 4}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
+              </g>
+              {isEditing ? (
+                renderEdit(
+                  midX - 38, dimY - 16, 76, 32, b.panel.length,
+                  (raw) => commitPanelEdit(b.panel.id, "length", raw),
+                  () => setEditing(null),
+                )
+              ) : (
+                <PanelDimHit
+                  cx={midX} cy={dimY} w={72} h={22}
+                  value={b.panel.length}
+                  interactive={!!onPanelChange}
+                  aria={`Panel length, ${b.panel.length} mm. Click to edit.`}
+                  onOpen={() => setEditing({ kind: "panel", panelId: b.panel.id, field: "length" })}
+                />
+              )}
             </g>
           );
         })}
 
-        {/* depth dimension on the leftmost panel */}
+        {/* width dimension on the leftmost panel — clickable to edit. */}
         {boxes.length > 0 && (() => {
           const b = boxes[0];
           const dimX = b.x - 14;
           const midY = b.y + b.h / 2;
+          const isEditing = editing?.kind === "panel"
+            && editing.panelId === b.panel.id
+            && editing.field === "width";
           return (
-            <g className="panel-dim" aria-hidden>
-              <line x1={dimX} y1={b.y} x2={dimX} y2={b.y + b.h}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <line x1={dimX - 4} y1={b.y} x2={dimX + 4} y2={b.y}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <line x1={dimX - 4} y1={b.y + b.h} x2={dimX + 4} y2={b.y + b.h}
-                stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
-              <g transform={`translate(${dimX} ${midY}) rotate(-90)`}>
-                <rect x={-32} y={-10} width={64} height={20} rx={3}
-                  fill="#ffffff" fillOpacity="0.96" />
-                <text x={0} y={0} textAnchor="middle" dominantBaseline="middle"
-                  fontSize="14" fill="#0c201c" fillOpacity="0.9"
-                  fontFamily="Maven Pro, sans-serif" fontWeight="500"
-                  style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {b.panel.width} mm
-                </text>
+            <g className="panel-dim">
+              <g aria-hidden>
+                <line x1={dimX} y1={b.y} x2={dimX} y2={b.y + b.h}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
+                <line x1={dimX - 4} y1={b.y} x2={dimX + 4} y2={b.y}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
+                <line x1={dimX - 4} y1={b.y + b.h} x2={dimX + 4} y2={b.y + b.h}
+                  stroke="#0c201c" strokeOpacity="0.38" strokeWidth="1" />
               </g>
+              {isEditing ? (
+                // Input sits above the (rotated) label in screen space —
+                // place it at the dim anchor with a fixed horizontal footprint.
+                renderEdit(
+                  dimX - 38, midY - 16, 76, 32, b.panel.width,
+                  (raw) => commitPanelEdit(b.panel.id, "width", raw),
+                  () => setEditing(null),
+                )
+              ) : (
+                <g transform={`translate(${dimX} ${midY}) rotate(-90)`}>
+                  <PanelDimHit
+                    cx={0} cy={0} w={72} h={22}
+                    value={b.panel.width}
+                    interactive={!!onPanelChange}
+                    aria={`Panel width, ${b.panel.width} mm. Click to edit.`}
+                    onOpen={() => setEditing({ kind: "panel", panelId: b.panel.id, field: "width" })}
+                  />
+                </g>
+              )}
             </g>
           );
         })()}
@@ -572,15 +913,11 @@ function NumHit({
       <text
         className="cutout__num-text"
         x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-        fontSize="15"
-        fill={variant === "backlit" ? "#f3f0ee" : textFill}
-        fillOpacity={variant === "backlit" ? 1 : textOpacity}
-        stroke={variant === "backlit" ? "#0c201c" : undefined}
-        strokeWidth={variant === "backlit" ? 5 : undefined}
-        strokeLinejoin={variant === "backlit" ? "round" : undefined}
-        strokeOpacity={variant === "backlit" ? 1 : undefined}
-        paintOrder={variant === "backlit" ? "stroke fill" : undefined}
-        fontFamily="Maven Pro, sans-serif" fontWeight={700}
+        dy="0.04em"
+        fontSize="13"
+        fill={textFill}
+        fillOpacity={textOpacity}
+        fontFamily="Maven Pro, sans-serif" fontWeight={600}
         style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none", letterSpacing: "0.01em" }}
       >
         {value}
@@ -590,20 +927,70 @@ function NumHit({
 }
 
 /**
+ * Clickable panel-dimension label. Matches the existing white-plate dim
+ * look exactly, but opens an inline editor on click.
+ */
+function PanelDimHit({
+  cx, cy, w, h, value, interactive, aria, onOpen,
+}: {
+  cx: number; cy: number; w: number; h: number;
+  value: number;
+  interactive: boolean;
+  aria: string;
+  onOpen: () => void;
+}) {
+  const handleOpen = (e: React.MouseEvent | React.KeyboardEvent) => {
+    if (!interactive) return;
+    e.stopPropagation();
+    onOpen();
+  };
+  return (
+    <g
+      className="panel-dim__hit"
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : -1}
+      aria-label={aria}
+      onClick={handleOpen}
+      onKeyDown={(e) => {
+        if (!interactive) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleOpen(e);
+        }
+      }}
+    >
+      <rect
+        x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={3}
+        fill="#ffffff" fillOpacity="0.96"
+      />
+      <text
+        x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+        fontSize="14" fill="#0c201c" fillOpacity="0.9"
+        fontFamily="Maven Pro, sans-serif" fontWeight="500"
+        style={{ fontVariantNumeric: "tabular-nums", pointerEvents: "none" }}
+      >
+        {value} mm
+      </text>
+    </g>
+  );
+}
+
+/**
  * Inline-edit input rendered inside an SVG <foreignObject>. Uses text +
  * inputMode=numeric so no browser spinner chrome renders. Styled via the
  * .cutout__edit class in styles.css.
+ *
+ * Generic over the commit callback so both cutout and panel edits share
+ * the same visual + keyboard behaviour.
  */
 function renderEdit(
-  placed: PlacedCutout,
-  field: EditField,
   x: number,
   y: number,
   width: number,
   height: number,
   initial: number,
-  commit: (p: PlacedCutout, f: EditField, raw: string) => void,
-  cancel: (v: null) => void,
+  onCommit: (raw: string) => void,
+  onCancel: () => void,
 ) {
   return (
     <foreignObject x={x} y={y} width={width} height={height} style={{ overflow: "visible" }}>
@@ -616,7 +1003,6 @@ function renderEdit(
         defaultValue={initial}
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => {
-          // Strip anything non-digit as the user types.
           const digitsOnly = e.currentTarget.value.replace(/\D/g, "");
           if (digitsOnly !== e.currentTarget.value) {
             e.currentTarget.value = digitsOnly;
@@ -625,13 +1011,13 @@ function renderEdit(
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commit(placed, field, e.currentTarget.value);
+            onCommit(e.currentTarget.value);
           } else if (e.key === "Escape") {
             e.preventDefault();
-            cancel(null);
+            onCancel();
           }
         }}
-        onBlur={(e) => commit(placed, field, e.currentTarget.value)}
+        onBlur={(e) => onCommit(e.currentTarget.value)}
       />
     </foreignObject>
   );

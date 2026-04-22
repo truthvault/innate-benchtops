@@ -28,6 +28,39 @@ export const defaultCutoutDims = () => ({
   depthMm: PRICING.cutoutDefaults.depthMm,
 });
 
+/**
+ * Shrink + re-centre a cutout so it still fits inside the given panel
+ * dimensions. Keeps a 20mm margin from each edge (matches PanelEditor's
+ * NumField max). Cutouts never grow here — only clamp down.
+ *
+ * Used when the panel resizes via drag or NumField, and when a new cutout
+ * is added to a panel smaller than the default cutout size.
+ */
+export const clampCutoutToPanel = (
+  c: Cutout,
+  panelLen: number,
+  panelWid: number,
+): Cutout => {
+  const maxW = Math.max(50, panelLen - 20);
+  const maxD = Math.max(50, panelWid - 20);
+  const widthMm = Math.min(c.widthMm, maxW);
+  const depthMm = Math.min(c.depthMm, maxD);
+  const halfAlong = widthMm / 2 / panelLen;
+  const halfAcross = depthMm / 2 / panelWid;
+  const pos = Math.max(halfAlong, Math.min(1 - halfAlong, c.pos));
+  const cross = Math.max(halfAcross, Math.min(1 - halfAcross, c.cross));
+  return { ...c, widthMm, depthMm, pos, cross };
+};
+
+/**
+ * Normalise a panel so its cutouts always fit within its current dimensions.
+ * Non-cutout fields pass through unchanged.
+ */
+export const normalizePanel = (p: Panel): Panel => ({
+  ...p,
+  cutouts: p.cutouts.map((c) => clampCutoutToPanel(c, p.length, p.width)),
+});
+
 export const DEFAULT_CUTOUT_WIDTH_MM = PRICING.cutoutDefaults.widthMm;
 export const DEFAULT_CUTOUT_DEPTH_MM = PRICING.cutoutDefaults.depthMm;
 

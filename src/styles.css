@@ -890,13 +890,82 @@ a { color: inherit; }
    plates inside this group are re-enabled below. */
 .cutout__dim .cutout__leader { pointer-events: none; }
 
-.cutout__num { cursor: text; }
-.cutout__num .cutout__num-plate {
-  fill: #ffffff;
-  fill-opacity: 0.78;
+/* ---------- on-canvas panel editing ---------- */
+
+.panel-dim__hit {
+  cursor: text;
+  transition: filter .18s var(--ease);
+}
+.panel-dim__hit:hover,
+.panel-dim__hit:focus-visible {
+  filter: drop-shadow(0 1px 2px rgba(12, 32, 28, 0.18));
+  outline: none;
+}
+
+.panel-resize__edge {
+  fill: transparent;
   stroke: var(--forest);
   stroke-opacity: 0;
-  stroke-width: 0.75;
+  stroke-width: 1.4;
+  pointer-events: all;
+  transition: stroke-opacity .18s var(--ease);
+}
+.panel-resize__edge:hover {
+  /* Faint forest hairline lights up along the edge on hover — tells the
+     user this is the grab zone, matches the existing forest focus accent. */
+  stroke-opacity: 0.55;
+}
+.panel-resize__edge--n,
+.panel-resize__edge--s { cursor: ns-resize; }
+.panel-resize__edge--w,
+.panel-resize__edge--e { cursor: ew-resize; }
+
+.panel-resize__corner rect {
+  pointer-events: all;
+}
+.panel-resize__corner--nw,
+.panel-resize__corner--se { cursor: nwse-resize; }
+.panel-resize__corner--ne,
+.panel-resize__corner--sw { cursor: nesw-resize; }
+
+/* Corner dots — always visible so the grab points can be found without
+   hovering. Firm up when the corner or its panel is hovered. */
+.panel-resize__dot {
+  fill: #0c201c;
+  fill-opacity: 0.35;
+  transition: fill-opacity .18s var(--ease);
+}
+.panel-resize:hover .panel-resize__dot {
+  fill-opacity: 0.55;
+}
+.panel-resize__corner:hover .panel-resize__dot {
+  fill-opacity: 0.85;
+}
+
+/* Mid-edge grip dots — same visual language as the cutout grab dots,
+   subtler at rest so they don't shout, firmer on panel hover. */
+.panel-resize__grip circle {
+  fill: #0c201c;
+  fill-opacity: 0.28;
+  transition: fill-opacity .18s var(--ease);
+}
+.panel-resize:hover .panel-resize__grip circle {
+  fill-opacity: 0.55;
+}
+
+.cutout__num { cursor: text; }
+
+/* Clean pill treatment — small cream chip with forest-ink numerals.
+   On the timber photo it reads as a tidy tappable badge; on the cream
+   cutout body the plate softens into the fill so you're left with just
+   the dark numbers. Hover firms the plate up with a soft lift. */
+.cutout__num .cutout__num-plate {
+  fill: #ffffff;
+  fill-opacity: 0.88;
+  stroke: var(--forest);
+  stroke-opacity: 0;
+  stroke-width: 0.6;
+  filter: drop-shadow(0 1px 1.5px rgba(12, 32, 28, 0.08));
   transition:
     fill-opacity .18s var(--ease),
     stroke-opacity .18s var(--ease),
@@ -905,47 +974,25 @@ a { color: inherit; }
 .cutout__num:hover .cutout__num-plate,
 .cutout__num:focus-visible .cutout__num-plate {
   fill-opacity: 1;
-  stroke-opacity: 0.45;
-  filter: drop-shadow(0 1px 2px rgba(12, 32, 28, 0.18));
+  stroke-opacity: 0.35;
+  filter: drop-shadow(0 2px 4px rgba(12, 32, 28, 0.14));
 }
-.cutout__num text {
+.cutout__num .cutout__num-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   transition: fill-opacity .18s var(--ease);
 }
-
-/* Centre size label plates sit over the charcoal cutout — carry a faint
-   chip by default so the number reads as clickable, not as loose text. */
-.cutout__num--dark .cutout__num-plate {
-  fill: #f3f0ee;
-  fill-opacity: 0.08;
-  stroke-opacity: 0;
-}
-.cutout__num--dark:hover .cutout__num-plate,
-.cutout__num--dark:focus-visible .cutout__num-plate {
-  fill-opacity: 0.2;
-  stroke-opacity: 0;
-  filter: none;
+.cutout__num:hover .cutout__num-text,
+.cutout__num:focus-visible .cutout__num-text {
+  fill-opacity: 1;
 }
 
-/* Backlit leader labels: bold cream numerals with a heavy dark outline
-   plus a thick diffused outer glow for high-contrast readability at a
-   distance. Hover deepens everything one notch. */
-.cutout__num--backlit .cutout__num-text {
-  stroke-width: 5.5;
-  stroke-opacity: 1;
-  filter:
-    drop-shadow(0 0 3px rgba(12, 32, 28, 0.95))
-    drop-shadow(0 0 1.8px rgba(12, 32, 28, 1))
-    drop-shadow(0 0 1px rgba(12, 32, 28, 1));
-  transition: stroke-width .18s var(--ease), filter .18s var(--ease);
-}
-.cutout__num--backlit:hover .cutout__num-text,
-.cutout__num--backlit:focus-visible .cutout__num-text {
-  stroke-width: 6.2;
-  filter:
-    drop-shadow(0 0 4px rgba(12, 32, 28, 1))
-    drop-shadow(0 0 2.4px rgba(12, 32, 28, 1))
-    drop-shadow(0 0 1.2px rgba(12, 32, 28, 1));
-}
+/* (legacy variants kept as no-op wrappers — unused now, but JSX may still
+    reference --dark / --backlit class names in old branches. Safe to drop
+    entirely when those branches merge.) */
+.cutout__num--dark .cutout__num-plate,
+.cutout__num--backlit .cutout__num-plate { /* intentional: no extra rules */ }
 
 /* Inline-edit input rendered inside SVG foreignObject.
    No solid border — just a layered box-shadow ring + soft lift. */

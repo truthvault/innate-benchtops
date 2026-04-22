@@ -6,6 +6,7 @@ import {
   blankPanel,
   defaultQuote,
   loadInitial,
+  normalizePanel,
   persist,
 } from "./state";
 import { findSpecies, type FinishId, type SpeciesId } from "./species";
@@ -29,7 +30,25 @@ export default function App() {
   );
 
   const updatePanel = useCallback((id: string, next: Panel) =>
-    setQuote((q) => ({ ...q, panels: q.panels.map((p) => (p.id === id ? next : p)) })), []);
+    setQuote((q) => ({
+      ...q,
+      panels: q.panels.map((p) => (p.id === id ? normalizePanel(next) : p)),
+    })), []);
+
+  // Narrow patch for the on-canvas panel edits (click a dim to edit, drag
+  // an edge/corner to resize). Only length + width live on the preview —
+  // thickness and quantity stay in the editor below. Cutouts auto-shrink
+  // when the panel shrinks below them, via normalizePanel.
+  const patchPanel = useCallback(
+    (panelId: string, updates: Partial<Pick<Panel, "length" | "width">>) =>
+      setQuote((q) => ({
+        ...q,
+        panels: q.panels.map((p) =>
+          p.id === panelId ? normalizePanel({ ...p, ...updates }) : p,
+        ),
+      })),
+    [],
+  );
 
   const removePanel = useCallback((id: string) =>
     setQuote((q) => ({
@@ -71,12 +90,12 @@ export default function App() {
         panels: q.panels.map((p) =>
           p.id !== panelId
             ? p
-            : {
+            : normalizePanel({
                 ...p,
                 cutouts: p.cutouts.map((c) =>
                   c.id === cutoutId ? { ...c, ...updates } : c,
                 ),
-              },
+              }),
         ),
       })),
     [],
@@ -110,6 +129,7 @@ export default function App() {
             species={quote.species}
             finish={quote.finish}
             onCutoutChange={setCutout}
+            onPanelChange={patchPanel}
           />
         </div>
 
