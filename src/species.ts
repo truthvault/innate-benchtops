@@ -39,6 +39,13 @@ export const MIN_WIDTH_MM = 250;
 export const MIN_THICKNESS_MM = 20;
 export const DEFAULT_THICKNESS_MM = 33;
 
+// Product ceilings — bounded by what the supply chain and shipping can
+// actually carry. Thickness max is per species (see species.json).
+export const MAX_LENGTH_MM = 4500;
+export const MAX_WIDTH_MM = 1200;
+export const MIN_QUANTITY = 1;
+export const MAX_QUANTITY = 50;
+
 export const PRICING = pricingJson as {
   pricePerLm: number;
   gstRate: number;

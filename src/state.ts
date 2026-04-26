@@ -1,6 +1,11 @@
 import {
   DEFAULT_THICKNESS_MM,
+  findSpecies,
+  MAX_LENGTH_MM,
+  MAX_QUANTITY,
+  MAX_WIDTH_MM,
   MIN_LENGTH_MM,
+  MIN_QUANTITY,
   MIN_THICKNESS_MM,
   MIN_WIDTH_MM,
   PRICING,
@@ -372,22 +377,28 @@ const migratePanel = (p: LegacyPanel): Panel => {
   } else {
     cutouts = buildCutouts((p.sinks ?? 0) + (p.cooktops ?? 0));
   }
-  // Defensively clamp each dimension to the current product minimums so a
-  // legacy shared URL with tiny / out-of-range panels can't rehydrate
-  // into an invalid editor state.
+  // Defensively clamp each dimension to product bounds so a legacy or
+  // hand-crafted shared URL with absurd values (length=50000, qty=999)
+  // can't rehydrate into an invalid editor state. Thickness gets a min
+  // floor here; the species-aware max cap is applied in rehydrate, where
+  // we know which species the quote uses.
+  const rawQty = Math.floor(p.quantity ?? 1) || 1;
   return {
     id: p.id ?? newId(),
     label: p.label ?? "",
-    length: Math.max(MIN_LENGTH_MM, p.length ?? 2400),
-    width: Math.max(MIN_WIDTH_MM, p.width ?? 650),
+    length: clampRange(p.length ?? 2400, MIN_LENGTH_MM, MAX_LENGTH_MM),
+    width: clampRange(p.width ?? 650, MIN_WIDTH_MM, MAX_WIDTH_MM),
     thickness: Math.max(
       MIN_THICKNESS_MM,
       p.thickness ?? DEFAULT_THICKNESS_MM,
     ) as Thickness,
-    quantity: Math.max(1, Math.floor(p.quantity ?? 1) || 1),
+    quantity: clampRange(rawQty, MIN_QUANTITY, MAX_QUANTITY),
     cutouts,
   };
 };
+
+const clampRange = (n: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, n));
 
 const migrateShipping = (raw: LegacyQuote): ShippingMode => {
   if (raw.shipping && typeof raw.shipping === "object" && "kind" in raw.shipping) {
@@ -402,19 +413,27 @@ const migrateShipping = (raw: LegacyQuote): ShippingMode => {
   return defaultShipping();
 };
 
-const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => ({
-  ...defaultQuote(),
-  ...raw,
-  panels: (raw.panels ?? []).map(migratePanel),
-  shipping: migrateShipping(raw),
-  // Customer details are NEVER rehydrated. The share form starts empty
-  // every load so stray partial state ("g", a half-typed phone, etc)
-  // from an earlier session or a legacy URL hash can't leak back in.
-  customer: defaultQuote().customer,
-  quoteNo: typeof raw.quoteNo === "string" && raw.quoteNo.trim()
-    ? raw.quoteNo
-    : mintQuoteNo(),
-});
+const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => {
+  const species = (raw.species ?? defaultQuote().species) as SpeciesId;
+  const maxThickness = findSpecies(species).maxThicknessMm;
+  return {
+    ...defaultQuote(),
+    ...raw,
+    species,
+    panels: (raw.panels ?? []).map(migratePanel).map((p) => ({
+      ...p,
+      thickness: Math.min(p.thickness, maxThickness) as Thickness,
+    })),
+    shipping: migrateShipping(raw),
+    // Customer details are NEVER rehydrated. The share form starts empty
+    // every load so stray partial state ("g", a half-typed phone, etc)
+    // from an earlier session or a legacy URL hash can't leak back in.
+    customer: defaultQuote().customer,
+    quoteNo: typeof raw.quoteNo === "string" && raw.quoteNo.trim()
+      ? raw.quoteNo
+      : mintQuoteNo(),
+  };
+};
 
 export const decodeQuote = (s: string): Quote | null => {
   try {

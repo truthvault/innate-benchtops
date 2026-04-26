@@ -351,6 +351,15 @@ a { color: inherit; }
   border-color: var(--forest); background: var(--paper);
   outline: none;
 }
+.numfield input[aria-invalid="true"] {
+  border-color: var(--rust, #b04a2a);
+}
+.numfield__warning {
+  font-size: .72rem;
+  line-height: 1.25;
+  color: var(--rust, #b04a2a);
+  margin-top: .15rem;
+}
 
 .thickness { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
 .thickness__seg {

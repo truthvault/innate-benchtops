@@ -3,7 +3,11 @@ import type { Cutout, Panel } from "../pricing";
 import { formatNZD } from "../pricing";
 import {
   findSpecies,
+  MAX_LENGTH_MM,
+  MAX_QUANTITY,
+  MAX_WIDTH_MM,
   MIN_LENGTH_MM,
+  MIN_QUANTITY,
   MIN_THICKNESS_MM,
   MIN_WIDTH_MM,
   type SpeciesId,
@@ -87,17 +91,62 @@ interface RowProps {
   onCutoutChange: (cutoutId: string, updates: Partial<Cutout>) => void;
 }
 
+type DimKey = "length" | "width" | "thickness" | "quantity";
+
 function PanelRow({
   panel, species, fresh, canRemove, lineTotal, onUpdate, onRemove, onCutoutChange,
 }: RowProps) {
-  const maxThickness = findSpecies(species).maxThicknessMm;
+  const speciesObj = findSpecies(species);
+  const maxThickness = speciesObj.maxThicknessMm;
+  const speciesName = speciesObj.name;
   const labelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (fresh) labelRef.current?.focus();
   }, [fresh]);
 
-  const setNum = (k: keyof Panel, v: number) => onUpdate({ ...panel, [k]: v });
+  const [warnings, setWarnings] = useState<Partial<Record<DimKey, string>>>({});
+  const setWarn = (k: DimKey, msg: string | null) =>
+    setWarnings((w) => {
+      if (!msg) {
+        if (!(k in w)) return w;
+        const { [k]: _omit, ...rest } = w;
+        void _omit;
+        return rest;
+      }
+      if (w[k] === msg) return w;
+      return { ...w, [k]: msg };
+    });
+
+  // When species switches and the App-level clamp drops thickness, surface
+  // the same hint the user would see if they'd typed an over-cap value.
+  const prevSpeciesRef = useRef(species);
+  const prevThicknessRef = useRef(panel.thickness);
+  useEffect(() => {
+    const speciesChanged = prevSpeciesRef.current !== species;
+    const thicknessDropped = panel.thickness < prevThicknessRef.current;
+    if (speciesChanged && thicknessDropped) {
+      setWarn(
+        "thickness",
+        `Max thickness for ${speciesName} is ${maxThickness} mm — adjusted.`,
+      );
+    }
+    prevSpeciesRef.current = species;
+    prevThicknessRef.current = panel.thickness;
+  }, [species, panel.thickness, maxThickness, speciesName]);
+
+  const commitDim = (k: DimKey, raw: number) => {
+    const bounds = dimBounds(k, maxThickness, speciesName);
+    const clamped = Math.max(bounds.min, Math.min(bounds.max, raw));
+    if (raw > bounds.max) {
+      setWarn(k, bounds.overMsg);
+    } else if (raw < bounds.min) {
+      setWarn(k, bounds.underMsg);
+    } else {
+      setWarn(k, null);
+    }
+    if (clamped !== panel[k]) onUpdate({ ...panel, [k]: clamped });
+  };
 
   const removeCutout = (id: string) =>
     onUpdate({ ...panel, cutouts: panel.cutouts.filter((c) => c.id !== id) });
@@ -136,18 +185,20 @@ function PanelRow({
           unit="mm"
           value={panel.length}
           min={MIN_LENGTH_MM}
-          max={4800}
+          max={MAX_LENGTH_MM}
           step={10}
-          onCommit={(n) => setNum("length", n)}
+          warning={warnings.length}
+          onCommit={(n) => commitDim("length", n)}
         />
         <NumField
           label="Width"
           unit="mm"
           value={panel.width}
           min={MIN_WIDTH_MM}
-          max={2000}
+          max={MAX_WIDTH_MM}
           step={10}
-          onCommit={(n) => setNum("width", n)}
+          warning={warnings.width}
+          onCommit={(n) => commitDim("width", n)}
         />
         <NumField
           label="Thickness"
@@ -156,15 +207,17 @@ function PanelRow({
           min={MIN_THICKNESS_MM}
           max={maxThickness}
           step={1}
-          onCommit={(n) => setNum("thickness", n)}
+          warning={warnings.thickness}
+          onCommit={(n) => commitDim("thickness", n)}
         />
         <NumField
           label="Qty"
           value={panel.quantity}
-          min={1}
-          max={20}
+          min={MIN_QUANTITY}
+          max={MAX_QUANTITY}
           step={1}
-          onCommit={(n) => setNum("quantity", n)}
+          warning={warnings.quantity}
+          onCommit={(n) => commitDim("quantity", n)}
         />
       </div>
 
@@ -320,6 +373,42 @@ function addCutout(panel: Panel): Cutout[] {
   return panel.cutouts;
 }
 
+// Per-dimension bounds + the messages that render when the user types
+// outside them. Thickness pulls its cap and species name from the row,
+// so the message reads naturally ("Max thickness for Rimu is 33 mm").
+function dimBounds(
+  k: DimKey,
+  maxThickness: number,
+  speciesName: string,
+): { min: number; max: number; underMsg: string; overMsg: string } {
+  switch (k) {
+    case "length":
+      return {
+        min: MIN_LENGTH_MM, max: MAX_LENGTH_MM,
+        underMsg: `Min length is ${MIN_LENGTH_MM} mm — adjusted.`,
+        overMsg: `Max length is ${MAX_LENGTH_MM} mm — adjusted.`,
+      };
+    case "width":
+      return {
+        min: MIN_WIDTH_MM, max: MAX_WIDTH_MM,
+        underMsg: `Min width is ${MIN_WIDTH_MM} mm — adjusted.`,
+        overMsg: `Max width is ${MAX_WIDTH_MM} mm — adjusted.`,
+      };
+    case "thickness":
+      return {
+        min: MIN_THICKNESS_MM, max: maxThickness,
+        underMsg: `Min thickness is ${MIN_THICKNESS_MM} mm — adjusted.`,
+        overMsg: `Max thickness for ${speciesName} is ${maxThickness} mm — adjusted.`,
+      };
+    case "quantity":
+      return {
+        min: MIN_QUANTITY, max: MAX_QUANTITY,
+        underMsg: `Min quantity is ${MIN_QUANTITY} — adjusted.`,
+        overMsg: `Max quantity is ${MAX_QUANTITY} — adjusted.`,
+      };
+  }
+}
+
 // ─── NumField: transient text during editing, commit on blur/Enter ────────
 
 function NumField({
@@ -330,6 +419,7 @@ function NumField({
   max,
   step = 1,
   hint,
+  warning,
   onCommit,
 }: {
   label: string;
@@ -340,6 +430,10 @@ function NumField({
   step?: number;
   /** Optional helper text appended after the unit, e.g. "max for Rimu". */
   hint?: string;
+  /** Inline warning rendered under the input (e.g. "Max length is 4500 mm — adjusted."). */
+  warning?: string;
+  /** Receives the rounded raw number the user committed; clamping + hint
+   *  state live in the parent so out-of-range entries can be surfaced. */
   onCommit: (n: number) => void;
 }) {
   const [text, setText] = useState(() => String(value));
@@ -356,9 +450,7 @@ function NumField({
       setText(String(value));
       return;
     }
-    const clamped = clamp(Math.round(n), min, max);
-    setText(String(clamped));
-    if (clamped !== value) onCommit(clamped);
+    onCommit(Math.round(n));
   };
 
   return (
@@ -372,6 +464,9 @@ function NumField({
         type="text"
         inputMode="numeric"
         pattern="[0-9]*"
+        min={min}
+        max={max}
+        aria-invalid={warning ? true : undefined}
         value={text}
         onFocus={() => { focusedRef.current = true; }}
         onChange={(e) => {
@@ -392,6 +487,9 @@ function NumField({
           }
         }}
       />
+      {warning ? (
+        <span className="numfield__warning" role="status">{warning}</span>
+      ) : null}
     </label>
   );
 }
