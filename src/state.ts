@@ -20,6 +20,24 @@ import type { ShippingMode } from "./shipping";
 export const STORAGE_KEY = "innate.benchtop.v4";
 const LEGACY_STORAGE_KEYS = ["innate.benchtop.v3"];
 
+/** A single field that the loader silently clamped during rehydrate.
+ *  Surfaced through `LoadResult.adjustments` so the UI can warn the
+ *  customer that the quote they see is not the one they shared. */
+export type Adjustment =
+  | { kind: "panel.length"; panelLabel: string; panelIndex: number; from: number; to: number; reason: string }
+  | { kind: "panel.width"; panelLabel: string; panelIndex: number; from: number; to: number; reason: string }
+  | { kind: "panel.thickness"; panelLabel: string; panelIndex: number; from: number; to: number; reason: string }
+  | { kind: "panel.quantity"; panelLabel: string; panelIndex: number; from: number; to: number; reason: string }
+  | { kind: "cutout.width"; panelLabel: string; panelIndex: number; cutoutIndex: number; from: number; to: number; reason: string }
+  | { kind: "cutout.depth"; panelLabel: string; panelIndex: number; cutoutIndex: number; from: number; to: number; reason: string }
+  | { kind: "cutout.position"; panelLabel: string; panelIndex: number; cutoutIndex: number; reason: string };
+
+export interface LoadResult {
+  quote: Quote;
+  /** Empty when nothing was clamped. UI should show no notice in that case. */
+  adjustments: Adjustment[];
+}
+
 let seq = 0;
 export const newId = () => {
   seq += 1;
@@ -366,7 +384,19 @@ const buildCutouts = (count: number): Cutout[] => {
   }));
 };
 
-const migratePanel = (p: LegacyPanel): Panel => {
+const isFiniteNumber = (n: unknown): n is number =>
+  typeof n === "number" && Number.isFinite(n);
+
+const migratePanel = (
+  p: LegacyPanel,
+  panelIndex: number,
+): { panel: Panel; adjustments: Adjustment[] } => {
+  const adj: Adjustment[] = [];
+  const label = p.label ?? "";
+
+  // Build cutouts from whichever legacy shape the input uses. Raw values
+  // are kept here unchanged so the panel-bounds clamp below can detect
+  // what came in vs what survived.
   let cutouts: Cutout[];
   if (Array.isArray(p.cutouts)) {
     const d = defaultCutoutDims();
@@ -382,29 +412,114 @@ const migratePanel = (p: LegacyPanel): Panel => {
   } else {
     cutouts = buildCutouts((p.sinks ?? 0) + (p.cooktops ?? 0));
   }
+  const rawCutouts = Array.isArray(p.cutouts) ? p.cutouts : null;
+
   // Defensively clamp each dimension to product bounds so a legacy or
   // hand-crafted shared URL with absurd values (length=50000, qty=999)
   // can't rehydrate into an invalid editor state. Thickness gets a min
   // floor here; the species-aware max cap is applied in rehydrate, where
   // we know which species the quote uses.
-  const rawQty = Math.floor(p.quantity ?? 1) || 1;
   const length = clampRange(p.length ?? 2400, MIN_LENGTH_MM, MAX_LENGTH_MM);
   const width = clampRange(p.width ?? 650, MIN_WIDTH_MM, MAX_WIDTH_MM);
+
+  if (isFiniteNumber(p.length) && p.length !== length) {
+    adj.push({
+      kind: "panel.length", panelLabel: label, panelIndex,
+      from: p.length, to: length,
+      reason: p.length > MAX_LENGTH_MM
+        ? `Max length is ${MAX_LENGTH_MM} mm`
+        : `Min length is ${MIN_LENGTH_MM} mm`,
+    });
+  }
+  if (isFiniteNumber(p.width) && p.width !== width) {
+    adj.push({
+      kind: "panel.width", panelLabel: label, panelIndex,
+      from: p.width, to: width,
+      reason: p.width > MAX_WIDTH_MM
+        ? `Max width is ${MAX_WIDTH_MM} mm`
+        : `Min width is ${MIN_WIDTH_MM} mm`,
+    });
+  }
+
+  // Thickness — only the min floor here. Species-cap clamp + adjustment
+  // is reported by rehydrate, which knows the species.
+  const thickness = Math.max(
+    MIN_THICKNESS_MM,
+    p.thickness ?? DEFAULT_THICKNESS_MM,
+  ) as Thickness;
+  if (isFiniteNumber(p.thickness) && p.thickness < MIN_THICKNESS_MM) {
+    adj.push({
+      kind: "panel.thickness", panelLabel: label, panelIndex,
+      from: p.thickness, to: thickness,
+      reason: `Min thickness is ${MIN_THICKNESS_MM} mm`,
+    });
+  }
+
+  // Quantity. Treat 0/NaN/undefined as "use default 1" silently — only
+  // report when the user supplied a valid positive integer that needed
+  // clamping.
+  const intendedQty = isFiniteNumber(p.quantity) ? Math.floor(p.quantity) : null;
+  const quantity = clampRange(intendedQty && intendedQty > 0 ? intendedQty : 1, MIN_QUANTITY, MAX_QUANTITY);
+  if (intendedQty !== null && intendedQty > 0 && intendedQty !== quantity) {
+    adj.push({
+      kind: "panel.quantity", panelLabel: label, panelIndex,
+      from: intendedQty, to: quantity,
+      reason: intendedQty > MAX_QUANTITY
+        ? `Max quantity is ${MAX_QUANTITY}`
+        : `Min quantity is ${MIN_QUANTITY}`,
+    });
+  }
+
   // Cutouts are clamped against the clamped panel dims so a hash like
   // {widthMm:99999, pos:0.5} can't leak into the editor as an over-large
   // cutout that breaks the SVG preview.
-  const safeCutouts = cutouts.map((c) => clampCutoutToPanel(c, length, width));
+  const safeCutouts = cutouts.map((c, idx) => {
+    const clamped = clampCutoutToPanel(c, length, width);
+    const raw = rawCutouts?.[idx];
+    if (raw && isFiniteNumber(raw.widthMm) && raw.widthMm !== clamped.widthMm) {
+      adj.push({
+        kind: "cutout.width", panelLabel: label, panelIndex, cutoutIndex: idx,
+        from: raw.widthMm, to: clamped.widthMm,
+        reason: raw.widthMm > length
+          ? `Max cutout width is ${length} mm (panel length)`
+          : `Min cutout width is ${MIN_CUTOUT_MM} mm`,
+      });
+    }
+    if (raw && isFiniteNumber(raw.depthMm) && raw.depthMm !== clamped.depthMm) {
+      adj.push({
+        kind: "cutout.depth", panelLabel: label, panelIndex, cutoutIndex: idx,
+        from: raw.depthMm, to: clamped.depthMm,
+        reason: raw.depthMm > width
+          ? `Max cutout depth is ${width} mm (panel width)`
+          : `Min cutout depth is ${MIN_CUTOUT_MM} mm`,
+      });
+    }
+    // Position adjustment fires when a user-supplied pos/cross had to be
+    // moved to keep the cutout inside the panel. We compare against the
+    // raw value (not clamp01-normalized) so a hash with pos=1.5 still
+    // triggers the notice.
+    const posMoved = raw && isFiniteNumber(raw.pos) && raw.pos !== clamped.pos;
+    const crossMoved = raw && isFiniteNumber(raw.cross) && raw.cross !== clamped.cross;
+    if (posMoved || crossMoved) {
+      adj.push({
+        kind: "cutout.position", panelLabel: label, panelIndex, cutoutIndex: idx,
+        reason: "Cutout was outside the panel — moved inside",
+      });
+    }
+    return clamped;
+  });
+
   return {
-    id: p.id ?? newId(),
-    label: p.label ?? "",
-    length,
-    width,
-    thickness: Math.max(
-      MIN_THICKNESS_MM,
-      p.thickness ?? DEFAULT_THICKNESS_MM,
-    ) as Thickness,
-    quantity: clampRange(rawQty, MIN_QUANTITY, MAX_QUANTITY),
-    cutouts: safeCutouts,
+    panel: {
+      id: p.id ?? newId(),
+      label,
+      length,
+      width,
+      thickness,
+      quantity,
+      cutouts: safeCutouts,
+    },
+    adjustments: adj,
   };
 };
 
@@ -424,17 +539,39 @@ const migrateShipping = (raw: LegacyQuote): ShippingMode => {
   return defaultShipping();
 };
 
-const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => {
+const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): LoadResult => {
   const species = (raw.species ?? defaultQuote().species) as SpeciesId;
-  const maxThickness = findSpecies(species).maxThicknessMm;
-  return {
+  const speciesObj = findSpecies(species);
+  const maxThickness = speciesObj.maxThicknessMm;
+
+  const adjustments: Adjustment[] = [];
+  const rawPanels = raw.panels ?? [];
+  const panels = rawPanels.map((rp, idx) => {
+    const { panel, adjustments: panelAdj } = migratePanel(rp, idx);
+    adjustments.push(...panelAdj);
+
+    // Species-aware thickness cap. The from-value is the user-supplied
+    // raw thickness so the customer sees what they shared, not what
+    // migratePanel's min-floor pass intermediate-clamped to.
+    const finalThickness = Math.min(panel.thickness, maxThickness) as Thickness;
+    if (isFiniteNumber(rp.thickness) && rp.thickness > maxThickness) {
+      adjustments.push({
+        kind: "panel.thickness",
+        panelLabel: panel.label,
+        panelIndex: idx,
+        from: rp.thickness,
+        to: finalThickness,
+        reason: `Max thickness for ${speciesObj.name} is ${maxThickness} mm`,
+      });
+    }
+    return { ...panel, thickness: finalThickness };
+  });
+
+  const quote: Quote = {
     ...defaultQuote(),
     ...raw,
     species,
-    panels: (raw.panels ?? []).map(migratePanel).map((p) => ({
-      ...p,
-      thickness: Math.min(p.thickness, maxThickness) as Thickness,
-    })),
+    panels,
     shipping: migrateShipping(raw),
     // Customer details are NEVER rehydrated. The share form starts empty
     // every load so stray partial state ("g", a half-typed phone, etc)
@@ -444,9 +581,11 @@ const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): Quote => {
       ? raw.quoteNo
       : mintQuoteNo(),
   };
+
+  return { quote, adjustments };
 };
 
-export const decodeQuote = (s: string): Quote | null => {
+export const decodeQuote = (s: string): LoadResult | null => {
   try {
     const raw = JSON.parse(b64url.decode(s)) as LegacyQuote & { quoteNo?: string };
     if (!raw || !Array.isArray(raw.panels)) return null;
@@ -456,7 +595,7 @@ export const decodeQuote = (s: string): Quote | null => {
   }
 };
 
-const readLocal = (): Quote | null => {
+const readLocal = (): LoadResult | null => {
   const keys = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
   for (const key of keys) {
     try {
@@ -472,14 +611,14 @@ const readLocal = (): Quote | null => {
   return null;
 };
 
-export const loadInitial = (): Quote => {
-  if (typeof window === "undefined") return defaultQuote();
+export const loadInitial = (): LoadResult => {
+  if (typeof window === "undefined") return { quote: defaultQuote(), adjustments: [] };
   const hash = window.location.hash.replace(/^#q=/, "");
   const fromHash = hash ? decodeQuote(hash) : null;
   if (fromHash) return fromHash;
   const fromLocal = readLocal();
   if (fromLocal) return fromLocal;
-  return defaultQuote();
+  return { quote: defaultQuote(), adjustments: [] };
 };
 
 export const persist = (q: Quote) => {

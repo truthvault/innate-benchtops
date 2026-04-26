@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Cutout, Panel, Quote } from "./pricing";
 import { panelPriceMap, priceQuote, quoteHasBenchtop } from "./pricing";
 import type { ShippingMode } from "./shipping";
@@ -9,6 +9,7 @@ import {
   loadInitial,
   normalizePanel,
   persist,
+  type Adjustment,
 } from "./state";
 import { findSpecies, type FinishId, type SpeciesId } from "./species";
 import { SlabPreview } from "./components/SlabPreview";
@@ -16,13 +17,35 @@ import { PanelEditor } from "./components/PanelEditor";
 import { TimberPicker } from "./components/TimberPicker";
 import { StickyBar } from "./components/StickyBar";
 import { QuoteForm } from "./components/QuoteForm";
+import { LoadAdjustmentNotice } from "./components/LoadAdjustmentNotice";
 
 export default function App() {
-  const [quote, setQuote] = useState<Quote>(() => loadInitial());
+  const initial = useMemo(() => loadInitial(), []);
+  const [quote, setQuote] = useState<Quote>(initial.quote);
+  const [loadAdjustments, setLoadAdjustments] = useState<Adjustment[]>(initial.adjustments);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Snapshots of the rehydrated state — when any of these refs differ from
+  // the current quote, the customer has made a real config edit and any
+  // load-time adjustment notice should auto-dismiss.
+  const initialPanelsRef = useRef(initial.quote.panels);
+  const initialSpeciesRef = useRef(initial.quote.species);
+  const initialFinishRef = useRef(initial.quote.finish);
+  const initialShippingRef = useRef(initial.quote.shipping);
+
   useEffect(() => { persist(quote); }, [quote]);
+
+  useEffect(() => {
+    if (
+      quote.panels !== initialPanelsRef.current ||
+      quote.species !== initialSpeciesRef.current ||
+      quote.finish !== initialFinishRef.current ||
+      quote.shipping !== initialShippingRef.current
+    ) {
+      setLoadAdjustments((prev) => (prev.length === 0 ? prev : []));
+    }
+  }, [quote.panels, quote.species, quote.finish, quote.shipping]);
 
   const totals = useMemo(() => priceQuote(quote), [quote]);
   const hasBenchtop = useMemo(
@@ -131,6 +154,13 @@ export default function App() {
 
       <main className="stage">
         <h1 className="stage__headline">Design your own solid timber benchtop</h1>
+
+        {loadAdjustments.length > 0 && (
+          <LoadAdjustmentNotice
+            adjustments={loadAdjustments}
+            onDismiss={() => setLoadAdjustments([])}
+          />
+        )}
 
         <div className="stage__preview">
           <SlabPreview
