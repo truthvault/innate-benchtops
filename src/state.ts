@@ -33,23 +33,28 @@ export const defaultCutoutDims = () => ({
   depthMm: PRICING.cutoutDefaults.depthMm,
 });
 
+/** Floor for cutout width/depth — anything narrower is below the joinery
+ *  tolerance for sinks and cooktops. */
+export const MIN_CUTOUT_MM = 50;
+
 /**
  * Shrink + re-centre a cutout so it still fits inside the given panel
- * dimensions. Keeps a 20mm margin from each edge (matches PanelEditor's
- * NumField max). Cutouts never grow here — only clamp down.
+ * dimensions. Cutouts never grow here — only clamp down. Edges may sit
+ * flush with panel edges; the per-cutout floor is MIN_CUTOUT_MM.
  *
- * Used when the panel resizes via drag or NumField, and when a new cutout
- * is added to a panel smaller than the default cutout size.
+ * Used when the panel resizes via drag or NumField, when a new cutout is
+ * added to a panel smaller than the default cutout size, and at load time
+ * to defensively normalise stale URL-hash data.
  */
 export const clampCutoutToPanel = (
   c: Cutout,
   panelLen: number,
   panelWid: number,
 ): Cutout => {
-  const maxW = Math.max(50, panelLen - 20);
-  const maxD = Math.max(50, panelWid - 20);
-  const widthMm = Math.min(c.widthMm, maxW);
-  const depthMm = Math.min(c.depthMm, maxD);
+  const maxW = Math.max(MIN_CUTOUT_MM, panelLen);
+  const maxD = Math.max(MIN_CUTOUT_MM, panelWid);
+  const widthMm = Math.max(MIN_CUTOUT_MM, Math.min(c.widthMm, maxW));
+  const depthMm = Math.max(MIN_CUTOUT_MM, Math.min(c.depthMm, maxD));
   const halfAlong = widthMm / 2 / panelLen;
   const halfAcross = depthMm / 2 / panelWid;
   const pos = Math.max(halfAlong, Math.min(1 - halfAlong, c.pos));
@@ -383,17 +388,23 @@ const migratePanel = (p: LegacyPanel): Panel => {
   // floor here; the species-aware max cap is applied in rehydrate, where
   // we know which species the quote uses.
   const rawQty = Math.floor(p.quantity ?? 1) || 1;
+  const length = clampRange(p.length ?? 2400, MIN_LENGTH_MM, MAX_LENGTH_MM);
+  const width = clampRange(p.width ?? 650, MIN_WIDTH_MM, MAX_WIDTH_MM);
+  // Cutouts are clamped against the clamped panel dims so a hash like
+  // {widthMm:99999, pos:0.5} can't leak into the editor as an over-large
+  // cutout that breaks the SVG preview.
+  const safeCutouts = cutouts.map((c) => clampCutoutToPanel(c, length, width));
   return {
     id: p.id ?? newId(),
     label: p.label ?? "",
-    length: clampRange(p.length ?? 2400, MIN_LENGTH_MM, MAX_LENGTH_MM),
-    width: clampRange(p.width ?? 650, MIN_WIDTH_MM, MAX_WIDTH_MM),
+    length,
+    width,
     thickness: Math.max(
       MIN_THICKNESS_MM,
       p.thickness ?? DEFAULT_THICKNESS_MM,
     ) as Thickness,
     quantity: clampRange(rawQty, MIN_QUANTITY, MAX_QUANTITY),
-    cutouts,
+    cutouts: safeCutouts,
   };
 };
 

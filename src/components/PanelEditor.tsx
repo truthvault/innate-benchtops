@@ -269,32 +269,101 @@ interface CutoutDetailProps {
   onRemove: () => void;
 }
 
+type CutoutFieldKey = "width" | "depth" | "fromLeft" | "fromFront";
+
+const MIN_CUTOUT_MM = 50;
+
 function CutoutDetail({
   index, total, cutout, panel, onChange, onRemove,
 }: CutoutDetailProps) {
   const fromLeft = Math.round(cutout.pos * panel.length - cutout.widthMm / 2);
   const fromFront = Math.round(cutout.cross * panel.width - cutout.depthMm / 2);
 
-  const maxW = Math.max(50, panel.length - 20);
-  const maxD = Math.max(50, panel.width - 20);
+  // Cutout edges may sit flush with the panel edges. The 50 mm floor matches
+  // the workshop's smallest practical drill / sink cut.
+  const maxW = Math.max(MIN_CUTOUT_MM, panel.length);
+  const maxD = Math.max(MIN_CUTOUT_MM, panel.width);
+  const maxFromLeft = Math.max(0, panel.length - cutout.widthMm);
+  const maxFromFront = Math.max(0, panel.width - cutout.depthMm);
 
-  const setWidth = (w: number) => {
-    const next = clamp(w, 50, maxW);
-    const nextPos = clamp((fromLeft + next / 2) / panel.length, 0, 1);
-    onChange({ widthMm: next, pos: nextPos });
+  const [warnings, setWarnings] = useState<Partial<Record<CutoutFieldKey, string>>>({});
+  const setWarn = (k: CutoutFieldKey, msg: string | null) =>
+    setWarnings((w) => {
+      if (!msg) {
+        if (!(k in w)) return w;
+        const { [k]: _omit, ...rest } = w;
+        void _omit;
+        return rest;
+      }
+      if (w[k] === msg) return w;
+      return { ...w, [k]: msg };
+    });
+
+  // Surface the same hint when a panel-side shrink forced this cutout to be
+  // re-clamped by normalizePanel. We can't see the upstream change directly,
+  // so we infer it: panel just shrank AND the cutout now occupies the full
+  // remaining panel dim (or sits at the position boundary). That can only
+  // happen if it was just clamped; a freshly-edited cutout that *equals* the
+  // panel by coincidence still gets the hint, which is accurate ("yes, you're
+  // at the limit").
+  const prevPanelLen = useRef(panel.length);
+  const prevPanelWid = useRef(panel.width);
+  useEffect(() => {
+    if (panel.length < prevPanelLen.current && cutout.widthMm === panel.length) {
+      setWarn("width", `Max cutout width is ${panel.length} mm (panel length) — adjusted.`);
+    }
+    if (panel.width < prevPanelWid.current && cutout.depthMm === panel.width) {
+      setWarn("depth", `Max cutout depth is ${panel.width} mm (panel width) — adjusted.`);
+    }
+    prevPanelLen.current = panel.length;
+    prevPanelWid.current = panel.width;
+  }, [panel.length, panel.width, cutout.widthMm, cutout.depthMm]);
+
+  const setWidth = (raw: number) => {
+    const clamped = Math.max(MIN_CUTOUT_MM, Math.min(maxW, raw));
+    if (raw > maxW) {
+      setWarn("width", `Max cutout width is ${maxW} mm (panel length) — adjusted.`);
+    } else if (raw < MIN_CUTOUT_MM) {
+      setWarn("width", `Min cutout width is ${MIN_CUTOUT_MM} mm — adjusted.`);
+    } else {
+      setWarn("width", null);
+    }
+    const nextPos = clamp((fromLeft + clamped / 2) / panel.length, 0, 1);
+    onChange({ widthMm: clamped, pos: nextPos });
   };
-  const setDepth = (d: number) => {
-    const next = clamp(d, 50, maxD);
-    const nextCross = clamp((fromFront + next / 2) / panel.width, 0, 1);
-    onChange({ depthMm: next, cross: nextCross });
+  const setDepth = (raw: number) => {
+    const clamped = Math.max(MIN_CUTOUT_MM, Math.min(maxD, raw));
+    if (raw > maxD) {
+      setWarn("depth", `Max cutout depth is ${maxD} mm (panel width) — adjusted.`);
+    } else if (raw < MIN_CUTOUT_MM) {
+      setWarn("depth", `Min cutout depth is ${MIN_CUTOUT_MM} mm — adjusted.`);
+    } else {
+      setWarn("depth", null);
+    }
+    const nextCross = clamp((fromFront + clamped / 2) / panel.width, 0, 1);
+    onChange({ depthMm: clamped, cross: nextCross });
   };
-  const setFromLeft = (mm: number) => {
-    const clamped = clamp(mm, 0, Math.max(0, panel.length - cutout.widthMm));
+  const setFromLeft = (raw: number) => {
+    const clamped = Math.max(0, Math.min(maxFromLeft, raw));
+    if (raw > maxFromLeft) {
+      setWarn("fromLeft", `Max from-left is ${maxFromLeft} mm — adjusted.`);
+    } else if (raw < 0) {
+      setWarn("fromLeft", `Min from-left is 0 mm — adjusted.`);
+    } else {
+      setWarn("fromLeft", null);
+    }
     const nextPos = (clamped + cutout.widthMm / 2) / panel.length;
     onChange({ pos: nextPos });
   };
-  const setFromFront = (mm: number) => {
-    const clamped = clamp(mm, 0, Math.max(0, panel.width - cutout.depthMm));
+  const setFromFront = (raw: number) => {
+    const clamped = Math.max(0, Math.min(maxFromFront, raw));
+    if (raw > maxFromFront) {
+      setWarn("fromFront", `Max from-front is ${maxFromFront} mm — adjusted.`);
+    } else if (raw < 0) {
+      setWarn("fromFront", `Min from-front is 0 mm — adjusted.`);
+    } else {
+      setWarn("fromFront", null);
+    }
     const nextCross = (clamped + cutout.depthMm / 2) / panel.width;
     onChange({ cross: nextCross });
   };
@@ -318,10 +387,10 @@ function CutoutDetail({
         </button>
       </div>
       <div className="cutout-item__grid">
-        <NumField label="Width" unit="mm" value={cutout.widthMm} min={50} max={maxW} step={10} onCommit={setWidth} />
-        <NumField label="Depth" unit="mm" value={cutout.depthMm} min={50} max={maxD} step={10} onCommit={setDepth} />
-        <NumField label="From left" unit="mm" value={fromLeft} min={0} max={Math.max(0, panel.length - cutout.widthMm)} step={5} onCommit={setFromLeft} />
-        <NumField label="From front" unit="mm" value={fromFront} min={0} max={Math.max(0, panel.width - cutout.depthMm)} step={5} onCommit={setFromFront} />
+        <NumField label="Width" unit="mm" value={cutout.widthMm} min={MIN_CUTOUT_MM} max={maxW} step={10} warning={warnings.width} onCommit={setWidth} />
+        <NumField label="Depth" unit="mm" value={cutout.depthMm} min={MIN_CUTOUT_MM} max={maxD} step={10} warning={warnings.depth} onCommit={setDepth} />
+        <NumField label="From left" unit="mm" value={fromLeft} min={0} max={maxFromLeft} step={5} warning={warnings.fromLeft} onCommit={setFromLeft} />
+        <NumField label="From front" unit="mm" value={fromFront} min={0} max={maxFromFront} step={5} warning={warnings.fromFront} onCommit={setFromFront} />
       </div>
     </li>
   );

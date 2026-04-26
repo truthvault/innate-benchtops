@@ -167,7 +167,7 @@ export function SlabPreview({
       case "w": {
         // Resize the cutout width while keeping its left edge roughly fixed.
         const currFromLeft = cutout.pos * panel.length - cutout.widthMm / 2;
-        const maxW = Math.max(50, panel.length - 20);
+        const maxW = Math.max(50, panel.length);
         const next = clamp(n, 50, maxW);
         const nextPos = clamp((currFromLeft + next / 2) / panel.length, 0, 1);
         onCutoutChange(panel.id, cutout.id, { widthMm: next, pos: nextPos });
@@ -175,7 +175,7 @@ export function SlabPreview({
       }
       case "d": {
         const currFromTop = cutout.cross * panel.width - cutout.depthMm / 2;
-        const maxD = Math.max(50, panel.width - 20);
+        const maxD = Math.max(50, panel.width);
         const next = clamp(n, 50, maxD);
         const nextCross = clamp((currFromTop + next / 2) / panel.width, 0, 1);
         onCutoutChange(panel.id, cutout.id, { depthMm: next, cross: nextCross });
@@ -1027,16 +1027,23 @@ function placeCutouts(box: Box, cutouts: Cutout[], scale: number): PlacedCutout[
   if (!cutouts || cutouts.length === 0) return [];
   const panel = box.panel;
   return cutouts.map((cutout) => {
-    const along = cutout.widthMm * scale;
-    const across = cutout.depthMm * scale;
-    const pos = clamp(cutout.pos, 0, 1);
-    const cross = clamp(cutout.cross, 0, 1);
+    // Defensive clamp: malformed data (cutout larger than panel) must never
+    // push the rect outside the slab fill, otherwise the cutout overlay
+    // hides the panel entirely and the SVG looks broken.
+    const widthMm = Math.min(cutout.widthMm, panel.length);
+    const depthMm = Math.min(cutout.depthMm, panel.width);
+    const along = widthMm * scale;
+    const across = depthMm * scale;
+    const halfAlong = widthMm / 2 / panel.length;
+    const halfAcross = depthMm / 2 / panel.width;
+    const pos = clamp(cutout.pos, halfAlong, 1 - halfAlong);
+    const cross = clamp(cutout.cross, halfAcross, 1 - halfAcross);
     const centreXMm = pos * panel.length;
     const centreYMm = cross * panel.width;
-    const dLeft = Math.max(0, centreXMm - cutout.widthMm / 2);
-    const dRight = Math.max(0, panel.length - centreXMm - cutout.widthMm / 2);
-    const dTop = Math.max(0, centreYMm - cutout.depthMm / 2);
-    const dBottom = Math.max(0, panel.width - centreYMm - cutout.depthMm / 2);
+    const dLeft = Math.max(0, centreXMm - widthMm / 2);
+    const dRight = Math.max(0, panel.length - centreXMm - widthMm / 2);
+    const dTop = Math.max(0, centreYMm - depthMm / 2);
+    const dBottom = Math.max(0, panel.width - centreYMm - depthMm / 2);
     return {
       cutout,
       box,
