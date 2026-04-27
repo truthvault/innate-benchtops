@@ -487,6 +487,41 @@ a { color: inherit; }
   .timber-picker__grid { grid-template-columns: repeat(3, 1fr); }
 }
 
+.timber-pricing-note {
+  margin: .25rem 0 0;
+  color: var(--ink-soft);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+.timber-pricing-note__toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--rust, #b04a2a);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.timber-pricing-note__toggle:hover { opacity: .8; }
+.timber-pricing-note__toggle:focus-visible {
+  outline: 2px solid var(--rust, #b04a2a);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.timber-pricing-note__details {
+  margin: .5rem 0 .25rem;
+  color: var(--ink-soft);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+.timber-pricing-note__details p {
+  margin: 0 0 .4rem;
+}
+.timber-pricing-note__details p:last-child {
+  margin-bottom: 0;
+}
+
 .timber-tile {
   position: relative;
   display: flex; flex-direction: column;

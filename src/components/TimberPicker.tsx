@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SPECIES, type SpeciesId } from "../species";
 
 interface Props {
@@ -6,11 +7,43 @@ interface Props {
 }
 
 export function TimberPicker({ value, onChange }: Props) {
+  const [whyOpen, setWhyOpen] = useState(false);
   return (
     <section className="timber-picker" aria-labelledby="timber-h">
       <header className="section-head">
         <h2 id="timber-h">Timber</h2>
         <p className="section-sub">Three native species, sustainably sourced.</p>
+        <p className="timber-pricing-note">
+          Same price across all three.{" "}
+          <button
+            type="button"
+            className="timber-pricing-note__toggle"
+            aria-expanded={whyOpen}
+            aria-controls="timber-pricing-why"
+            onClick={() => setWhyOpen((o) => !o)}
+          >
+            {whyOpen ? "Hide ↓" : "Here's why →"}
+          </button>
+        </p>
+        <div
+          id="timber-pricing-why"
+          role="region"
+          aria-label="Why prices are the same across species"
+          className="timber-pricing-note__details"
+          hidden={!whyOpen}
+        >
+          <p>
+            Years of working directly with the sawmillers we buy from. We visit
+            them, we walk the land, we agree prices that hold steady across
+            West Coast Rimu, Northland Tōtara, and West Coast Beech.
+          </p>
+          <p>
+            We grade strictly for structural stability. But we don't grade
+            out the knots, the colour shifts, the marks of how the tree
+            actually grew. Less waste. More honest timber. One fair price
+            across all three.
+          </p>
+        </div>
       </header>
       <div className="timber-picker__grid" role="radiogroup" aria-label="Timber species">
         {SPECIES.map((s) => {
