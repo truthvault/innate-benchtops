@@ -468,7 +468,14 @@ export default async function handler(
           ].filter((v): v is string => !!v && v !== innate)
         : undefined;
 
-    await resend.emails.send({
+    // Resend's SDK returns Response<T> = { data, error: null } | { data: null, error }
+    // — the promise does NOT reject on Resend API errors (rate limits,
+    // validation failures, daily quota, content rejections). Until this
+    // commit, the handler awaited the call without checking the return,
+    // so any Resend error became a silent 200 + ok:true success while
+    // no email actually sent. Now we read the discriminator and surface
+    // the underlying error.
+    const primary = await resend.emails.send({
       from,
       to: [primaryTo],
       cc,
@@ -478,8 +485,24 @@ export default async function handler(
       html,
     });
 
+    if (primary.error) {
+      console.error("send-quote: primary email failed", {
+        path: payload.path,
+        quoteNo: payload.quoteNo,
+        to: primaryTo,
+        error: primary.error,
+      });
+      return send(res, 502, {
+        ok: false,
+        error: primary.error.message ?? "Email send failed",
+      });
+    }
+
     if (payload.path !== "workshop") {
-      await resend.emails.send({
+      // Workshop-FYI copy on self/other paths. The customer's primary
+      // already succeeded — don't block their success UI on the internal
+      // copy. Log so we can reconcile manually if it ever fails.
+      const fyi = await resend.emails.send({
         from,
         to: [innate],
         replyTo: payload.customer.email,
@@ -487,10 +510,21 @@ export default async function handler(
         text,
         html,
       });
+      if (fyi.error) {
+        console.error("send-quote: workshop FYI email failed", {
+          path: payload.path,
+          quoteNo: payload.quoteNo,
+          primaryEmailId: primary.data?.id,
+          error: fyi.error,
+        });
+      }
     }
 
     return send(res, 200, { ok: true });
   } catch (e) {
+    // Catches unexpected throws — network failure, DNS, etc. Resend's
+    // own API errors arrive as `Response.error`, not as throws.
+    console.error("send-quote: handler threw", e);
     const msg = e instanceof Error ? e.message : "Send failed";
     return send(res, 502, { ok: false, error: msg });
   }
