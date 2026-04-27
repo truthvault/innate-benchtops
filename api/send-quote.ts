@@ -1,8 +1,14 @@
 /// <reference types="node" />
 import { Resend } from "resend";
-import { INNATE_LOGO_DATA_URI, INNATE_LOGO_DISPLAY_W, INNATE_LOGO_PX } from "./_lib/innate-logo.js";
-import { renderLayoutPng } from "./_lib/layout-image.js";
 import { formatDispatchWeek } from "../src/dispatch-date.js";
+
+// Logo: Gmail's image proxy refuses inline base64 data: URIs, which
+// shipped emails (Prompts 8 + 8b) as broken-image placeholders. Switching
+// to the existing Shopify CDN URL renders reliably across Gmail, Apple
+// Mail, and Outlook with no proxy gymnastics.
+const LOGO_URL =
+  "https://innatefurniture.co.nz/cdn/shop/files/Innate_Logo_Concept_1.png?width=360";
+const LOGO_DISPLAY_W = 180;
 
 // ─── Types (narrow copies of client types, kept here to avoid the bundler
 //       pulling the whole app into the function) ─────────────────────────
@@ -188,6 +194,15 @@ const nzd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+// Greeting first-word extractor. Takes the first space-separated token
+// from the customer's name and returns it if it has at least one Unicode
+// letter. Otherwise (empty string, only punctuation, only digits) falls
+// back to "there" so emails never read "Hi ?" or "Hi ,".
+const greetFirstName = (name: string): string => {
+  const first = name.trim().split(/\s+/)[0] ?? "";
+  return /\p{L}/u.test(first) ? first : "there";
+};
+
 // Reconstruct the full interactive-quote URL from the request that hit
 // this function plus the encoded payload the client sent. Using
 // x-forwarded-host means the email link points back to whichever origin
@@ -236,7 +251,7 @@ export function textBody(payload: SendQuotePayload, shareUrl: string): string {
     );
   } else if (path === "self") {
     lines.push(
-      `Hi ${customer.name.split(" ")[0] || "there"},`,
+      `Hi ${greetFirstName(customer.name)},`,
       "",
       `Here's your benchtop quote from Innate Furniture. Click the link below to reopen the interactive configurator — adjust dimensions or delivery, and the price updates live.`,
       "",
@@ -298,12 +313,6 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
     ? "Precision milling, laminating, sanding and oiling in our Christchurch workshop."
     : "Precision milling, laminating and sanding in our Christchurch workshop.";
 
-  // Customer's actual layout, rendered to PNG and inlined as base64.
-  // Falls back to null if rendering fails — the panels table below still
-  // tells the customer what they're getting, so dropping the image is
-  // graceful, not catastrophic.
-  const layoutPng = renderLayoutPng(quote.panels);
-
   const rows = quote.panels
     .map((p, i) => {
       const co = p.cutouts.length
@@ -320,7 +329,7 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
           ? `<blockquote style="border-left:3px solid #163832;margin:12px 0;padding:6px 12px;color:#14141399;font-style:italic">${esc(recipient.noteToRecipient)}</blockquote>`
           : "")
       : path === "self"
-        ? `<p>Hi ${esc(customer.name.split(" ")[0] || "there")},</p><p>Here's your benchtop quote from Innate Furniture. The link below reopens the interactive configurator — adjust dimensions or delivery, and the price updates live.</p>`
+        ? `<p>Hi ${esc(greetFirstName(customer.name))},</p><p>Here's your benchtop quote from Innate Furniture. The link below reopens the interactive configurator — adjust dimensions or delivery, and the price updates live.</p>`
         : (() => {
             const prefers =
               customer.contactMethod === "phone"
@@ -345,9 +354,12 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
             );
           })();
 
-  const layoutBlock = layoutPng
-    ? `<img src="${layoutPng}" alt="Benchtop layout for quote ${esc(quoteNo)}" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:8px 0 4px;border-radius:8px;background:#ffffff">`
-    : "";
+  // Per-quote layout image is deferred — Prompt 8/8b inlined it as a
+  // base64 data URI which Gmail's image proxy silently refused (rendered
+  // as a broken image placeholder). The next attempt should ship it as a
+  // Resend attachment with a `cid:` reference. The buildLayoutSvg /
+  // renderLayoutPng helper in api/_lib/layout-image.ts is intact and
+  // ready for that follow-up.
 
   // Three-step "what happens next" timeline. Numbered list for max
   // email-client compatibility (Outlook desktop renders custom flexbox
@@ -390,10 +402,9 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
 <html>
   <body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Maven Pro',sans-serif;background:#faf8f5;color:#141413;line-height:1.55">
     <div style="max-width:560px;margin:0 auto;background:#ffffff;padding:32px;border-radius:12px;box-shadow:0 1px 2px rgba(15,15,14,0.06)">
-      <img src="${INNATE_LOGO_DATA_URI}" alt="Innate Furniture" width="${INNATE_LOGO_DISPLAY_W}" height="${Math.round(INNATE_LOGO_DISPLAY_W * INNATE_LOGO_PX.h / INNATE_LOGO_PX.w)}" style="display:block;border:0;outline:none;text-decoration:none;height:auto;width:${INNATE_LOGO_DISPLAY_W}px;max-width:100%;margin-bottom:8px">
+      <img src="${LOGO_URL}" alt="Innate Furniture" width="${LOGO_DISPLAY_W}" style="display:block;border:0;outline:none;text-decoration:none;height:auto;width:${LOGO_DISPLAY_W}px;max-width:100%;margin-bottom:12px">
       <h1 style="margin:4px 0 20px;font-size:20px;font-weight:600">Benchtop quote · ${esc(quoteNo)}</h1>
       ${intro}
-      ${layoutBlock}
       <table style="width:100%;border-collapse:collapse;margin:16px 0 8px;font-size:14px">
         <tr><td style="padding:4px 8px;color:#14141399;width:110px">Timber</td><td style="padding:4px 8px">${esc(quote.species)}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Finish</td><td style="padding:4px 8px">${esc(finishLabel(quote.finish))}</td></tr>

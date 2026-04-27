@@ -1,17 +1,25 @@
 /**
  * Renders the customer's actual benchtop layout as a PNG, suitable for
- * inlining into an HTML email as a base64 data URI. Mirrors the geometry
- * approach SlabPreview uses on the frontend (panels in a row separated by
- * a fixed gap, scale chosen so the whole arrangement fits the canvas) but
- * stripped down to a clean outline + cutout markers for cross-client
- * email rendering. No drag, no wood texture, no live editing.
+ * inlining into an HTML email. Mirrors the geometry approach SlabPreview
+ * uses on the frontend (panels in a row separated by a fixed gap, scale
+ * chosen so the whole arrangement fits the canvas) but stripped down to
+ * a clean outline + cutout markers. No drag, no wood texture, no live
+ * editing.
  *
  * resvg-js is loaded lazily inside the renderer rather than via static
  * import so a missing platform binary on Vercel can't crash the whole
  * function before the handler runs. If the binary load fails, the
- * renderer returns null and the email still sends with logo + summary
- * + timeline + CTA — the layout image is degraded-but-OK, never a
- * hard failure.
+ * renderer returns null.
+ *
+ * TODO (deferred from Prompt 8c): the email integration is currently OFF.
+ * api/send-quote.ts no longer calls renderLayoutPng() because the inline
+ * base64 data URI approach was rejected by Gmail's image proxy and shipped
+ * as broken-image placeholders. The recommended re-enable path is to ship
+ * the PNG as a Resend message attachment with a `cid:` reference in the
+ * <img src="cid:layout"> tag. The vercel.json `functions.includeFiles`
+ * glob and the @resvg/resvg-js dependency are kept in place for that
+ * follow-up so it's a small change rather than a re-litigation of the
+ * native-binary bundling work.
  */
 
 import { createRequire } from "node:module";

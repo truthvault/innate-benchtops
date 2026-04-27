@@ -1,7 +1,5 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { textBody, htmlBody } from "../api/send-quote.ts";
-import { renderLayoutPng } from "../api/_lib/layout-image.ts";
-import { INNATE_LOGO_DATA_URI } from "../api/_lib/innate-logo.ts";
 import { formatDispatchWeek } from "../src/dispatch-date.ts";
 
 mkdirSync("/tmp/email-fixtures", { recursive: true });
@@ -51,24 +49,7 @@ const shapes = [
   },
 ];
 
-console.log("=== Layout PNG sizes ===");
-for (const s of shapes) {
-  const png = renderLayoutPng(s.panels);
-  if (!png) {
-    console.log(`✗ ${s.key} — render returned null`);
-    continue;
-  }
-  const b64 = png.replace(/^data:image\/png;base64,/, "");
-  const pngBytes = Buffer.from(b64, "base64").length;
-  const cutCount = s.panels.reduce((a, p) => a + p.cutouts.length, 0);
-  console.log(`  ${s.key}: PNG=${(pngBytes/1024).toFixed(1)}KB  base64=${(b64.length/1024).toFixed(1)}KB  (${s.panels.length} panels, ${cutCount} cutouts)`);
-  writeFileSync(`/tmp/email-fixtures/layout-${s.key}.png`, Buffer.from(b64, "base64"));
-}
-
-const logoB64 = INNATE_LOGO_DATA_URI.replace(/^data:image\/png;base64,/, "");
-console.log(`  logo:       PNG=${(Buffer.from(logoB64,"base64").length/1024).toFixed(1)}KB  base64=${(logoB64.length/1024).toFixed(1)}KB`);
-
-console.log("\n=== Dispatch dates ===");
+console.log("=== Dispatch dates ===");
 const today = new Date();
 for (const w of [4, 5, 6, 8]) {
   console.log(`  today + ${w}w → "${formatDispatchWeek(today, w)}"`);
@@ -95,6 +76,43 @@ for (const s of shapes) {
     writeFileSync(`/tmp/email-fixtures/${s.key}-${path}.txt`, text);
     console.log(`  ${s.key} / ${path}: HTML=${htmlKB}KB  text=${textKB}KB`);
   }
+}
+
+// Sanity-check the greeting fallback by rendering the "self" path with
+// each sample name and grepping the rendered HTML for the greeting line.
+console.log("\n=== Greeting first-name extraction ===");
+const greetingNames = ["Guido", "Final V2 polished", "Dr Sarah Smith", ""];
+for (const name of greetingNames) {
+  const payload = {
+    path: "self" as const,
+    customer: { name, email: "test@example.com", phone: "0211234567" },
+    quote: { species: "West Coast Rimu", finish: "oiled", panels: shapes[0].panels },
+    quoteNo: "INT-666",
+    totals: baseTotals,
+    quoteHash: "TEST_HASH",
+  };
+  const html = htmlBody(payload as any, SHARE_URL);
+  const match = html.match(/<p>Hi ([^,]+),<\/p>/);
+  const greeting = match ? `Hi ${match[1]}` : "(no greeting found)";
+  console.log(`  name="${name}" → "${greeting}"`);
+}
+
+// Verify the logo <img> references the hosted Shopify URL and there's no
+// inline data: URI left over from Prompt 8.
+console.log("\n=== Image src audit ===");
+{
+  const html = htmlBody({
+    path: "self", customer: baseCustomer, quote: { species: "Rimu", finish: "oiled", panels: shapes[0].panels },
+    quoteNo: "INT-666", totals: baseTotals, quoteHash: "T",
+  } as any, SHARE_URL);
+  const imgs = [...html.matchAll(/<img\s[^>]*src="([^"]+)"/g)].map(m => m[1]);
+  console.log(`  ${imgs.length} <img> tag(s):`);
+  for (const src of imgs) {
+    const summary = src.startsWith("data:") ? "INLINE BASE64 (BAD)" : src;
+    console.log(`    - ${summary}`);
+  }
+  const inlineCount = imgs.filter(s => s.startsWith("data:")).length;
+  console.log(`  Inline base64 count: ${inlineCount} ${inlineCount === 0 ? "✓" : "✗"}`);
 }
 
 console.log("\nFixtures written to /tmp/email-fixtures/");
