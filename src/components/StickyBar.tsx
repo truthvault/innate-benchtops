@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Totals } from "../pricing";
 import { formatNZD } from "../pricing";
 import type { ShippingMode } from "../shipping";
 import type { FinishId } from "../species";
+import { formatDispatchWeek } from "../dispatch-date";
 import { AddressSearch } from "./AddressSearch";
 
 interface Props {
@@ -45,6 +46,13 @@ export function StickyBar({
   }, [totals.grand]);
 
   const direction = prior !== null ? (totals.grand > prior ? "up" : "down") : null;
+  // Dispatch estimate: rounded to the Monday of (today + leadTimeWeeks).
+  // Computed inline here rather than passed in so the chip stays in sync
+  // with whatever lead-time the priceQuote() result currently produces.
+  const dispatchWeek = useMemo(
+    () => formatDispatchWeek(new Date(), leadTimeWeeks),
+    [leadTimeWeeks],
+  );
   const isOther = shippingMode.kind === "other";
   const isUnset = shippingMode.kind === "unset";
   const isDelivering = shippingMode.kind === "delivering";
@@ -215,8 +223,8 @@ export function StickyBar({
             </div>
           </div>
 
-          <div className="stickybar__lead" aria-label="Lead time">
-            Approx. {leadTimeWeeks}-week lead time
+          <div className="stickybar__lead" aria-label="Estimated dispatch">
+            Approx. dispatch · {dispatchWeek}
           </div>
           <div className="stickybar__cta-wrap">
             {!hasMainPanel && (

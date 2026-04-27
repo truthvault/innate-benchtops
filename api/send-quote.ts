@@ -1,5 +1,8 @@
 /// <reference types="node" />
 import { Resend } from "resend";
+import { INNATE_LOGO_DATA_URI, INNATE_LOGO_DISPLAY_W, INNATE_LOGO_PX } from "./_lib/innate-logo";
+import { renderLayoutPng } from "./_lib/layout-image";
+import { formatDispatchWeek } from "../src/dispatch-date";
 
 // ─── Types (narrow copies of client types, kept here to avoid the bundler
 //       pulling the whole app into the function) ─────────────────────────
@@ -215,8 +218,12 @@ function panelRows(q: PayloadQuote): string {
     .join("\n");
 }
 
-function textBody(payload: SendQuotePayload, shareUrl: string): string {
+export function textBody(payload: SendQuotePayload, shareUrl: string): string {
   const { customer, recipient, quote, quoteNo, totals, path } = payload;
+  const dispatchWeek = formatDispatchWeek(new Date(), totals.leadTimeWeeks);
+  const finishStep = quote.finish === "oiled"
+    ? "Precision milling, laminating, sanding and oiling in our Christchurch workshop."
+    : "Precision milling, laminating and sanding in our Christchurch workshop.";
   const lines: string[] = [];
 
   if (path === "other") {
@@ -267,8 +274,13 @@ function textBody(payload: SendQuotePayload, shareUrl: string): string {
     `Panels:`,
     panelRows(quote),
     `Delivery:   ${totals.shipping.label}${totals.shipping.cost > 0 ? ` · ${nzd(totals.shipping.cost)}` : ""}`,
-    `Lead time:  ~${totals.leadTimeWeeks} weeks`,
+    `Dispatch:   Estimated ${dispatchWeek}`,
     `Total:      ${nzd(totals.grand)} incl GST`,
+    "",
+    `What happens next:`,
+    `  1. Confirm and source. We come back to confirm your order, and start sourcing your timber direct from our sawmillers.`,
+    `  2. Craft. ${finishStep}`,
+    `  3. Dispatch. Wrapped and dispatched. Estimated ${dispatchWeek}.`,
     "",
     `— Innate Furniture · Ōtautahi Christchurch`,
   );
@@ -276,10 +288,21 @@ function textBody(payload: SendQuotePayload, shareUrl: string): string {
   return lines.filter(Boolean).join("\n");
 }
 
-function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
+export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
   const { customer, recipient, quote, quoteNo, totals, path } = payload;
   const esc = (s: string) =>
     s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+  const dispatchWeek = formatDispatchWeek(new Date(), totals.leadTimeWeeks);
+  const finishStep = quote.finish === "oiled"
+    ? "Precision milling, laminating, sanding and oiling in our Christchurch workshop."
+    : "Precision milling, laminating and sanding in our Christchurch workshop.";
+
+  // Customer's actual layout, rendered to PNG and inlined as base64.
+  // Falls back to null if rendering fails — the panels table below still
+  // tells the customer what they're getting, so dropping the image is
+  // graceful, not catastrophic.
+  const layoutPng = renderLayoutPng(quote.panels);
 
   const rows = quote.panels
     .map((p, i) => {
@@ -322,24 +345,67 @@ function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
             );
           })();
 
+  const layoutBlock = layoutPng
+    ? `<img src="${layoutPng}" alt="Benchtop layout for quote ${esc(quoteNo)}" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:8px 0 4px;border-radius:8px;background:#ffffff">`
+    : "";
+
+  // Three-step "what happens next" timeline. Numbered list for max
+  // email-client compatibility (Outlook desktop renders custom flexbox
+  // unreliably). Each step is a small card with a green index circle.
+  const timeline = `
+      <div style="margin:24px 0 8px">
+        <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#14141399;font-weight:600;margin-bottom:10px">What happens next</div>
+        <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5">
+          <tr>
+            <td style="vertical-align:top;width:30px;padding:8px 12px 8px 0">
+              <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:999px;background:#163832;color:#f3f0ee;font-weight:600;font-size:12px">1</div>
+            </td>
+            <td style="vertical-align:top;padding:8px 0">
+              <div style="font-weight:600;color:#0c201c">Confirm and source</div>
+              <div style="color:#14141399">We come back to confirm your order, and start sourcing your timber direct from our sawmillers.</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align:top;width:30px;padding:8px 12px 8px 0">
+              <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:999px;background:#163832;color:#f3f0ee;font-weight:600;font-size:12px">2</div>
+            </td>
+            <td style="vertical-align:top;padding:8px 0">
+              <div style="font-weight:600;color:#0c201c">Craft</div>
+              <div style="color:#14141399">${finishStep}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="vertical-align:top;width:30px;padding:8px 12px 8px 0">
+              <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:999px;background:#163832;color:#f3f0ee;font-weight:600;font-size:12px">3</div>
+            </td>
+            <td style="vertical-align:top;padding:8px 0">
+              <div style="font-weight:600;color:#0c201c">Dispatch</div>
+              <div style="color:#14141399">Wrapped and dispatched. Estimated ${dispatchWeek}.</div>
+            </td>
+          </tr>
+        </table>
+      </div>`;
+
   return `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Maven Pro',sans-serif;background:#faf8f5;color:#141413;line-height:1.55">
     <div style="max-width:560px;margin:0 auto;background:#ffffff;padding:32px;border-radius:12px;box-shadow:0 1px 2px rgba(15,15,14,0.06)">
-      <div style="letter-spacing:.18em;color:#163832;font-weight:700;font-size:13px">INNATE</div>
+      <img src="${INNATE_LOGO_DATA_URI}" alt="Innate Furniture" width="${INNATE_LOGO_DISPLAY_W}" height="${Math.round(INNATE_LOGO_DISPLAY_W * INNATE_LOGO_PX.h / INNATE_LOGO_PX.w)}" style="display:block;border:0;outline:none;text-decoration:none;height:auto;width:${INNATE_LOGO_DISPLAY_W}px;max-width:100%;margin-bottom:8px">
       <h1 style="margin:4px 0 20px;font-size:20px;font-weight:600">Benchtop quote · ${esc(quoteNo)}</h1>
       ${intro}
-      <p style="margin:16px 0 8px">
-        <a href="${esc(shareUrl)}" style="display:inline-block;padding:12px 20px;background:#163832;color:#f3f0ee;text-decoration:none;border-radius:6px;font-weight:600">Open interactive quote</a>
-      </p>
-      <table style="width:100%;border-collapse:collapse;margin:24px 0;font-size:14px">
+      ${layoutBlock}
+      <table style="width:100%;border-collapse:collapse;margin:16px 0 8px;font-size:14px">
         <tr><td style="padding:4px 8px;color:#14141399;width:110px">Timber</td><td style="padding:4px 8px">${esc(quote.species)}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Finish</td><td style="padding:4px 8px">${esc(finishLabel(quote.finish))}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399;vertical-align:top">Panels</td><td style="padding:0"><table style="border-collapse:collapse">${rows}</table></td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Delivery</td><td style="padding:4px 8px">${esc(totals.shipping.label)}${totals.shipping.cost > 0 ? ` · ${esc(nzd(totals.shipping.cost))}` : ""}</td></tr>
-        <tr><td style="padding:4px 8px;color:#14141399">Lead time</td><td style="padding:4px 8px">~${totals.leadTimeWeeks} weeks</td></tr>
+        <tr><td style="padding:4px 8px;color:#14141399">Dispatch</td><td style="padding:4px 8px">Estimated ${esc(dispatchWeek)}</td></tr>
         <tr><td style="padding:12px 8px 4px;color:#14141399;font-weight:600;border-top:1px dashed #e6dfd4">Total</td><td style="padding:12px 8px 4px;border-top:1px dashed #e6dfd4;font-weight:700;color:#0c201c;font-size:18px">${esc(nzd(totals.grand))} <span style="font-weight:400;font-size:12px;color:#14141399">incl GST</span></td></tr>
       </table>
+      ${timeline}
+      <p style="margin:20px 0 8px">
+        <a href="${esc(shareUrl)}" style="display:inline-block;padding:12px 20px;background:#163832;color:#f3f0ee;text-decoration:none;border-radius:6px;font-weight:600">Open interactive quote</a>
+      </p>
       <p style="color:#14141399;font-size:12px;margin-top:24px">Innate Furniture · 281 Queen Elizabeth II Drive, Christchurch</p>
     </div>
   </body>
