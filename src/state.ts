@@ -343,15 +343,20 @@ const b64url = {
 
 /**
  * Shape that's safe to put in a URL or copy-paste share. Contains the
- * product configuration only — never customer PII.
+ * product configuration only — never customer PII, never any legacy field.
  */
 type ShareableQuote = Omit<Quote, "customer">;
 
-const stripForShare = (q: Quote): ShareableQuote => {
-  const { customer: _omit, ...rest } = q;
-  void _omit;
-  return rest;
-};
+// Built field-by-field rather than via spread-rest so any non-canonical
+// runtime property (legacy `delivery` / `address`, future schema drift)
+// is dropped at the persist boundary instead of silently round-tripping.
+const stripForShare = (q: Quote): ShareableQuote => ({
+  panels: q.panels,
+  species: q.species,
+  finish: q.finish,
+  shipping: q.shipping,
+  quoteNo: q.quoteNo,
+});
 
 /** URL-safe: excludes customer details. Use this for the hash + share links. */
 export const encodeQuoteForShare = (q: Quote) =>
@@ -530,12 +535,12 @@ const migrateShipping = (raw: LegacyQuote): ShippingMode => {
   if (raw.shipping && typeof raw.shipping === "object" && "kind" in raw.shipping) {
     return raw.shipping as ShippingMode;
   }
-  const legacy = raw.delivery;
-  if (legacy === "pickup") return { kind: "pickup" };
-  if (legacy === "nationwide") {
-    // Can't infer destination from free-text address without a match; default to pickup.
-    return { kind: "pickup" };
-  }
+  // Backwards-compat: pre-structured-shipping prototypes stored
+  // `delivery: "pickup"` and a free-text `address`. Honour pickup only —
+  // for other legacy values (`"nationwide"`) we have no destination to
+  // map and the default delivering-mode prompt is more honest than
+  // guessing pickup.
+  if (raw.delivery === "pickup") return { kind: "pickup" };
   return defaultShipping();
 };
 
@@ -567,11 +572,15 @@ const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): LoadResult => {
     return { ...panel, thickness: finalThickness };
   });
 
+  // Built field-by-field — no `...raw` spread — so legacy / unknown
+  // properties on the input (e.g. the old `delivery` / `address` keys
+  // that pre-dated the structured `shipping` field) can't leak onto the
+  // Quote and round-trip back into localStorage / the URL hash.
+  const finish: FinishId = (raw.finish ?? defaultQuote().finish) as FinishId;
   const quote: Quote = {
-    ...defaultQuote(),
-    ...raw,
-    species,
     panels,
+    species,
+    finish,
     shipping: migrateShipping(raw),
     // Customer details are NEVER rehydrated. The share form starts empty
     // every load so stray partial state ("g", a half-typed phone, etc)
