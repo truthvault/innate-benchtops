@@ -5,9 +5,16 @@
  * a fixed gap, scale chosen so the whole arrangement fits the canvas) but
  * stripped down to a clean outline + cutout markers for cross-client
  * email rendering. No drag, no wood texture, no live editing.
+ *
+ * resvg-js is loaded lazily inside the renderer rather than via static
+ * import so a missing platform binary on Vercel can't crash the whole
+ * function before the handler runs. If the binary load fails, the
+ * renderer returns null and the email still sends with logo + summary
+ * + timeline + CTA — the layout image is degraded-but-OK, never a
+ * hard failure.
  */
 
-import { Resvg } from "@resvg/resvg-js";
+import { createRequire } from "node:module";
 
 interface LayoutPanel {
   length: number;
@@ -104,16 +111,48 @@ export function buildLayoutSvg(panels: LayoutPanel[]): string {
 </svg>`;
 }
 
+// Lazy, cached, fault-tolerant load of the resvg-js native binding.
+// One attempt per cold start; subsequent calls reuse the cached result.
+// The literal-string `require()` argument is what the Vercel bundler
+// follows to include `@resvg/resvg-js` in the function bundle — the
+// platform-specific `.node` file beneath it lands via vercel.json's
+// functions.includeFiles config.
+type ResvgClass = new (svg: string, options: object) => {
+  render: () => { asPng: () => Buffer };
+};
+let _ResvgClass: ResvgClass | null = null;
+let _loadAttempted = false;
+
+function tryLoadResvg(): ResvgClass | null {
+  if (_loadAttempted) return _ResvgClass;
+  _loadAttempted = true;
+  try {
+    const requireFn = createRequire(import.meta.url);
+    const mod = requireFn("@resvg/resvg-js") as { Resvg: ResvgClass };
+    _ResvgClass = mod.Resvg;
+  } catch (e) {
+    console.error(
+      "layout-image: failed to load @resvg/resvg-js native binding — " +
+        "email will be sent without layout image:",
+      e,
+    );
+    _ResvgClass = null;
+  }
+  return _ResvgClass;
+}
+
 /**
  * Render the layout SVG to PNG and return a base64 data URI suitable for
- * <img src="..."> in an HTML email. Returns `null` if rendering fails so
- * the caller can fall back gracefully (the email still has the panels
- * table — losing the image isn't catastrophic).
+ * `<img src="...">` in an HTML email. Returns `null` if the native
+ * binding can't be loaded OR rendering fails. Either way the caller
+ * drops the image and the rest of the email proceeds unchanged.
  */
 export function renderLayoutPng(panels: LayoutPanel[]): string | null {
+  const ResvgClass = tryLoadResvg();
+  if (!ResvgClass) return null;
   try {
     const svg = buildLayoutSvg(panels);
-    const resvg = new Resvg(svg, {
+    const resvg = new ResvgClass(svg, {
       fitTo: { mode: "width", value: 1200 },
       background: "rgba(255,255,255,1)",
       // loadSystemFonts: true is the resvg-js default. Vercel's Linux
@@ -124,7 +163,7 @@ export function renderLayoutPng(panels: LayoutPanel[]): string | null {
     const png = resvg.render().asPng();
     return `data:image/png;base64,${png.toString("base64")}`;
   } catch (e) {
-    console.error("renderLayoutPng failed:", e);
+    console.error("renderLayoutPng: render failed:", e);
     return null;
   }
 }
