@@ -3,6 +3,7 @@ import type { Quote, Totals } from "../pricing";
 import { formatNZD } from "../pricing";
 import { findSpecies } from "../species";
 import { shippingLabel } from "../shipping";
+import { encodeQuoteForShare } from "../state";
 
 type SharePath = "self" | "workshop" | "other";
 type ContactMethod = "email" | "phone";
@@ -134,7 +135,11 @@ export function QuoteForm({
     return true;
   })();
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  // Send the encoded payload only — never the full URL. The backend
+  // reconstructs the share link from request headers, which means the
+  // 500-char "Share URL too long" cap that used to trip on real kitchen
+  // quotes (2+ panels with cutouts) is structurally gone.
+  const quoteHash = encodeQuoteForShare(quote);
 
   const submit = async () => {
     setTouched(true);
@@ -198,7 +203,7 @@ export function QuoteForm({
             leadTimeWeeks: totals.leadTimeWeeks,
             shipping: totals.shipping,
           },
-          shareUrl,
+          quoteHash,
         }),
       });
 

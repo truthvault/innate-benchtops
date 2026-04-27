@@ -56,7 +56,10 @@ interface SendQuotePayload {
   quote: PayloadQuote;
   quoteNo: string;
   totals: PayloadTotals;
-  shareUrl: string;
+  /** The base64-encoded quote hash (the `BASE64` part of `#q=BASE64`).
+   *  The full share URL is reconstructed server-side from request
+   *  headers — see buildShareUrl(). The client never sends a URL. */
+  quoteHash: string;
 }
 
 // ─── Minimal in-memory rate limiter (5 req/min/IP) ─────────────────────
@@ -85,7 +88,9 @@ const isPhone = (s: string) => phoneDigits(s).length >= 7;
 
 // Length caps — any field over these limits is almost certainly spam or
 // accidental paste. Keeps the workshop inbox readable and email-provider
-// size limits safe.
+// size limits safe. The quoteHash cap is generous (a 5-panel kitchen with
+// 2 cutouts each lands ~1500 chars) so realistic quotes never trip it,
+// but tight enough to refuse a 10-MB POST body up front.
 const LIMITS = {
   name: 120,
   email: 200,
@@ -96,7 +101,7 @@ const LIMITS = {
   quoteNo: 40,
   species: 80,
   shippingLabel: 120,
-  shareUrl: 500,
+  quoteHash: 8000,
   bestTimeToCall: 200,
 };
 
@@ -155,8 +160,8 @@ function validate(payload: SendQuotePayload): string | null {
 
   if (!payload.quoteNo?.trim()) return "Missing quote number";
   if (tooLong(payload.quoteNo, LIMITS.quoteNo)) return "Quote number invalid";
-  if (!payload.shareUrl?.trim()) return "Missing share URL";
-  if (tooLong(payload.shareUrl, LIMITS.shareUrl)) return "Share URL too long";
+  if (!payload.quoteHash?.trim()) return "Missing quote payload";
+  if (tooLong(payload.quoteHash, LIMITS.quoteHash)) return "Quote payload too long";
   if (!payload.quote?.panels?.length) return "Missing panel data";
   if (payload.quote.panels.length > 20) return "Too many panels";
   for (const p of payload.quote.panels) {
@@ -180,6 +185,25 @@ const nzd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+// Reconstruct the full interactive-quote URL from the request that hit
+// this function plus the encoded payload the client sent. Using
+// x-forwarded-host means the email link points back to whichever origin
+// the customer just submitted from — production custom domain, the
+// `*.vercel.app` deployment alias, or a preview deploy — without
+// hard-coding any of them. Falls back to the live production URL if the
+// header is missing (defensive; Vercel always sets it for serverless).
+function buildShareUrl(
+  req: { headers: IncomingMessage["headers"] },
+  quoteHash: string,
+): string {
+  const hostHeader = req.headers["x-forwarded-host"] ?? req.headers["host"];
+  const host = (Array.isArray(hostHeader) ? hostHeader[0] : hostHeader)
+    ?? "innate-benchtop-quote.vercel.app";
+  const protoHeader = req.headers["x-forwarded-proto"];
+  const proto = (Array.isArray(protoHeader) ? protoHeader[0] : protoHeader) ?? "https";
+  return `${proto}://${host}/#q=${quoteHash}`;
+}
+
 function panelRows(q: PayloadQuote): string {
   return q.panels
     .map((p, i) => {
@@ -191,8 +215,8 @@ function panelRows(q: PayloadQuote): string {
     .join("\n");
 }
 
-function textBody(payload: SendQuotePayload): string {
-  const { customer, recipient, quote, quoteNo, totals, shareUrl, path } = payload;
+function textBody(payload: SendQuotePayload, shareUrl: string): string {
+  const { customer, recipient, quote, quoteNo, totals, path } = payload;
   const lines: string[] = [];
 
   if (path === "other") {
@@ -252,8 +276,8 @@ function textBody(payload: SendQuotePayload): string {
   return lines.filter(Boolean).join("\n");
 }
 
-function htmlBody(payload: SendQuotePayload): string {
-  const { customer, recipient, quote, quoteNo, totals, shareUrl, path } = payload;
+function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
+  const { customer, recipient, quote, quoteNo, totals, path } = payload;
   const esc = (s: string) =>
     s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -422,8 +446,9 @@ export default async function handler(
   }
 
   const resend = new Resend(apiKey);
-  const html = htmlBody(payload);
-  const text = textBody(payload);
+  const shareUrl = buildShareUrl(req, payload.quoteHash);
+  const html = htmlBody(payload, shareUrl);
+  const text = textBody(payload, shareUrl);
 
   try {
     const primaryTo =
