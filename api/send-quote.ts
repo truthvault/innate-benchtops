@@ -1,8 +1,8 @@
 /// <reference types="node" />
 import { Resend } from "resend";
-import { INNATE_LOGO_DATA_URI, INNATE_LOGO_DISPLAY_W, INNATE_LOGO_PX } from "./_lib/innate-logo";
-import { renderLayoutPng } from "./_lib/layout-image";
-import { formatDispatchWeek } from "../src/dispatch-date";
+import { INNATE_LOGO_DATA_URI, INNATE_LOGO_DISPLAY_W, INNATE_LOGO_PX } from "./_lib/innate-logo.js";
+import { renderLayoutPng } from "./_lib/layout-image.js";
+import { formatDispatchWeek } from "../src/dispatch-date.js";
 
 // ─── Types (narrow copies of client types, kept here to avoid the bundler
 //       pulling the whole app into the function) ─────────────────────────
