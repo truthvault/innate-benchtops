@@ -10,15 +10,17 @@ interface Props {
   shippingMode: ShippingMode;
   finish: FinishId;
   leadTimeWeeks: number;
-  /** True when at least one panel is bench-sized (see quoteHasBenchtop). */
-  hasBenchtop: boolean;
+  /** True when at least one panel meets the full main-benchtop spec
+   *  (see quoteHasMainPanel in src/state.ts). When false, Share is
+   *  HTML-disabled and a persistent warning sits above the button. */
+  hasMainPanel: boolean;
   onFinishChange: (f: FinishId) => void;
   onShippingChange: (m: ShippingMode) => void;
   onRequest: () => void;
 }
 
 export function StickyBar({
-  totals, shippingMode, finish, leadTimeWeeks, hasBenchtop,
+  totals, shippingMode, finish, leadTimeWeeks, hasMainPanel,
   onFinishChange, onShippingChange, onRequest,
 }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
@@ -57,11 +59,16 @@ export function StickyBar({
     || shippingMode.kind === "other";
   // Share is only allowed once the customer has explicitly picked pickup
   // or a resolved delivery address, AND the quote contains at least one
-  // bench-sized panel. "unset" and "delivering" both block on delivery;
-  // `hasBenchtop=false` blocks because shelves can't stand alone.
-  const canShare = !isUnset && !isDelivering && hasBenchtop;
-  const shareDisabledReason = !hasBenchtop
-    ? "Add a benchtop (1200 × 250 mm or larger)"
+  // bench-sized panel. The two gates use different mechanisms by design:
+  //   - !hasMainPanel  → HTML `disabled` attribute on the button, plus a
+  //     persistent inline warning. The customer can't click their way
+  //     through; the only path forward is to grow a panel.
+  //   - delivery unset → button stays clickable so a click can flash the
+  //     in-bar prompt + auto-focus the address input. Less obstructive,
+  //     because an unset delivery is a near-final step, not a config bug.
+  const canShare = !isUnset && !isDelivering && hasMainPanel;
+  const shareDisabledReason = !hasMainPanel
+    ? "Add a benchtop 1200 × 250 × 20 mm or larger"
     : isUnset || isDelivering
       ? "Pick a delivery location first"
       : undefined;
@@ -82,7 +89,7 @@ export function StickyBar({
     setIsPrompting(true);
     window.setTimeout(() => setIsPrompting(false), 2400);
 
-    if (hasBenchtop && (isUnset || isDelivering)) {
+    if (hasMainPanel && (isUnset || isDelivering)) {
       // Point them straight at the address input.
       if (isUnset) onShippingChange({ kind: "delivering" });
       setAddressFocusSignal((n) => n + 1);
@@ -212,17 +219,21 @@ export function StickyBar({
             Approx. {leadTimeWeeks}-week lead time
           </div>
           <div className="stickybar__cta-wrap">
-            {isPrompting && !canShare && (
+            {!hasMainPanel && (
+              <div className="stickybar__warning" role="status" aria-live="polite">
+                Add a benchtop 1200 × 250 × 20 mm or larger to send this quote.
+              </div>
+            )}
+            {hasMainPanel && isPrompting && !canShare && (
               <div className="stickybar__hint" role="status" aria-live="polite">
-                {!hasBenchtop
-                  ? "Add a benchtop (1200 × 250 mm or larger) first"
-                  : "Enter a delivery address or choose Pick up"}
+                Enter a delivery address or choose Pick up
               </div>
             )}
             <button
               type="button"
               className="btn-primary stickybar__cta"
               onClick={attemptShare}
+              disabled={!hasMainPanel}
               aria-disabled={!canShare}
               title={shareDisabledReason}
             >

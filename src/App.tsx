@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Cutout, Panel, Quote } from "./pricing";
-import { panelPriceMap, priceQuote, quoteHasBenchtop } from "./pricing";
+import { panelPriceMap, priceQuote } from "./pricing";
 import type { ShippingMode } from "./shipping";
 import {
   blankPanel,
@@ -9,6 +9,7 @@ import {
   loadInitial,
   normalizePanel,
   persist,
+  quoteHasMainPanel,
   type Adjustment,
 } from "./state";
 import { findSpecies, type FinishId, type SpeciesId } from "./species";
@@ -48,9 +49,9 @@ export default function App() {
   }, [quote.panels, quote.species, quote.finish, quote.shipping]);
 
   const totals = useMemo(() => priceQuote(quote), [quote]);
-  const hasBenchtop = useMemo(
-    () => quoteHasBenchtop(quote.panels),
-    [quote.panels],
+  const hasMainPanel = useMemo(
+    () => quoteHasMainPanel(quote),
+    [quote],
   );
 
   const updatePanel = useCallback((id: string, next: Panel) =>
@@ -193,7 +194,7 @@ export default function App() {
         shippingMode={quote.shipping}
         finish={quote.finish}
         leadTimeWeeks={totals.leadTimeWeeks}
-        hasBenchtop={hasBenchtop}
+        hasMainPanel={hasMainPanel}
         onFinishChange={setFinish}
         onShippingChange={setShipping}
         onRequest={() => setModalOpen(true)}

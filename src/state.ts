@@ -38,6 +38,30 @@ export interface LoadResult {
   adjustments: Adjustment[];
 }
 
+/** Minimum spec for at least one panel in a shareable quote. Mirrors the
+ *  customer-facing rule shown in the panel-editor footer hint. Width and
+ *  thickness floors are already enforced by the per-field input bounds in
+ *  PanelEditor, so in practice the binding constraint is `lengthMm`. */
+export const MAIN_PANEL_MIN = {
+  lengthMm: 1200,
+  widthMm: 250,
+  thicknessMm: 20,
+} as const;
+
+/**
+ * A quote is shareable only when at least one of its panels meets the
+ * full main-benchtop spec. Quantity is irrelevant — a single bench-sized
+ * panel with qty 1 still satisfies the rule. Sub-spec offcuts and shelves
+ * may sit alongside but never on their own.
+ */
+export const quoteHasMainPanel = (q: Quote): boolean =>
+  q.panels.some(
+    (p) =>
+      p.length >= MAIN_PANEL_MIN.lengthMm &&
+      p.width >= MAIN_PANEL_MIN.widthMm &&
+      p.thickness >= MAIN_PANEL_MIN.thicknessMm,
+  );
+
 let seq = 0;
 export const newId = () => {
   seq += 1;
