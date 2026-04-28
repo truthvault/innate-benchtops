@@ -833,7 +833,15 @@ function layout(panels: Panel[]) {
 
   const laidOutWidth = totalLen * scale;
   const startX = MARGIN_LEFT + (availW - laidOutWidth) / 2;
-  const centreY = MARGIN_TOP + (availH - maxWid * scale) / 2;
+  // Visually centre the panel in the viewBox. `availH` already excludes
+  // the DIM_RESERVE strip kept at the bottom for dimension labels; if we
+  // simply centre within availH the panel sits anchored to the top of
+  // that strip, which reads as off-centre toward the top (more visible
+  // for tall panels like 3900 × 1200). Bias by half of DIM_RESERVE so
+  // the panel's visual midline lands on the viewBox midline. Labels
+  // still get clearance below because the scale is constrained by
+  // (availH excl. DIM_RESERVE), not by the centering offset.
+  const centreY = MARGIN_TOP + (availH - maxWid * scale) / 2 + DIM_RESERVE / 2;
 
   const boxes = panels.reduce<{ items: Box[]; cx: number }>(
     (acc, p) => {
