@@ -423,25 +423,28 @@ export function SlabPreview({
             lift the negative offsets in the last column rather than
             softening the diagonals.
 
-            Country bark — dark warm brown. Crushes green to ~18% and
-            blue to ~10%, holds red at 50%; this lifts the R/G ratio
-            high enough across the highlight range that bright areas of
-            the photo (which would otherwise read as tan/yellow) sit
-            firmly in saturated brown territory. A bright wood pixel
-            (255, 230, 150) maps to roughly (129, 64, 14) — R/G ratio
-            ~2.0, unambiguously brown not yellow.
-            Darkwash — near-black with a faint warm undertone. All
-            diagonals down to ~10–18% so even the highlights crush to
-            espresso, with red held marginally higher than green/blue
+            Country bark — deep neutral brown (walnut/dark oak family).
+            Earlier iterations crushed green hard but left blue near
+            zero, which read as red-brown rather than true brown. This
+            version keeps the R diagonal moderate (0.38) and lifts blue
+            to 0.25 so the output has the slight cool undertone genuine
+            brown carries. A bright wood pixel (255, 230, 150) maps to
+            ~(107, 75, 64), and a mid-tone (200, 150, 90) maps to
+            ~(79, 49, 40) — both sit cleanly in the dark walnut /
+            saddle brown range, no longer leaning red.
+            Darkwash — near-black, deeper than before. All diagonals
+            now down to 4–10%; combined with negative offsets, even
+            mid-tones crush below 30 in every channel and dark areas
+            land at black. Red held marginally higher than green/blue
             so it doesn't go cold-grey.
           */}
           <filter id="colour-bark" x="0" y="0" width="100%" height="100%">
             <feColorMatrix
               type="matrix"
               values="
-                0.50 0.05 0.02 0 -0.05
-                0.15 0.18 0.03 0 -0.08
-                0.05 0.03 0.10 0 -0.08
+                0.38 0.05 0.06 0 -0.04
+                0.13 0.20 0.06 0 -0.05
+                0.08 0.06 0.25 0 -0.03
                 0    0    0    1  0"
             />
           </filter>
@@ -449,9 +452,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.50 0.05 0.02 0 -0.05
-                0.15 0.18 0.03 0 -0.08
-                0.05 0.03 0.10 0 -0.08
+                0.38 0.05 0.06 0 -0.04
+                0.13 0.20 0.06 0 -0.05
+                0.08 0.06 0.25 0 -0.03
                 0    0    0    1  0"
               result="bark"
             />
@@ -469,9 +472,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.16 0.08 0.04 0 -0.05
-                0.08 0.08 0.04 0 -0.05
-                0.03 0.03 0.06 0 -0.05
+                0.10 0.06 0.03 0 -0.05
+                0.06 0.06 0.03 0 -0.05
+                0.02 0.02 0.04 0 -0.05
                 0    0    0    1  0"
             />
           </filter>
@@ -479,9 +482,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.16 0.08 0.04 0 -0.05
-                0.08 0.08 0.04 0 -0.05
-                0.03 0.03 0.06 0 -0.05
+                0.10 0.06 0.03 0 -0.05
+                0.06 0.06 0.03 0 -0.05
+                0.02 0.02 0.04 0 -0.05
                 0    0    0    1  0"
               result="darkwash"
             />
