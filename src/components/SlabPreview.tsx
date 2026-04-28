@@ -432,11 +432,22 @@ export function SlabPreview({
             wood pixel (255, 230, 150) maps to ~(90, 79, 59) ≈
             #5a4f3b, and a mid-tone (200, 150, 90) maps to ~(66, 51, 35)
             ≈ #423322 — true browns with no red dominance.
-            Darkwash — near-black, deeper than before. All diagonals
-            now down to 4–10%; combined with negative offsets, even
-            mid-tones crush below 30 in every channel and dark areas
-            land at black. Red held marginally higher than green/blue
-            so it doesn't go cold-grey.
+            Darkwash — near-black with grain still readable across
+            every species, including beech (which is already a darker
+            base photo than rimu / tōtara). Earlier iteration used
+            heavier negative offsets (-0.05) that clipped beech's
+            dark pixels to flat 0 in every channel, killing grain
+            visibility. New version keeps small diagonals (R 0.14,
+            G 0.07, B 0.04) but pulls offsets nearly to zero (-0.01)
+            so dark source pixels still produce small positive values
+            rather than getting clamped at zero. The diagonals
+            preserve relative luminance variation across the photo,
+            which is what reads as "grain" — the offsets just shift
+            the average down. On a typical bright wood pixel
+            (255, 230, 150) the output is ~(50, 37, 13) ≈ #32250d
+            (dark espresso). On a dark beech pixel (60, 50, 30) it's
+            ~(9, 6, 1) — still very dark but distinct from neighbouring
+            pixels.
           */}
           <filter id="colour-bark" x="0" y="0" width="100%" height="100%">
             <feColorMatrix
@@ -472,9 +483,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.10 0.06 0.03 0 -0.05
-                0.06 0.06 0.03 0 -0.05
-                0.02 0.02 0.04 0 -0.05
+                0.14 0.06 0.02 0 -0.01
+                0.08 0.07 0.02 0 -0.01
+                0.02 0.02 0.04 0 -0.01
                 0    0    0    1  0"
             />
           </filter>
@@ -482,9 +493,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.10 0.06 0.03 0 -0.05
-                0.06 0.06 0.03 0 -0.05
-                0.02 0.02 0.04 0 -0.05
+                0.14 0.06 0.02 0 -0.01
+                0.08 0.07 0.02 0 -0.01
+                0.02 0.02 0.04 0 -0.01
                 0    0    0    1  0"
               result="darkwash"
             />
