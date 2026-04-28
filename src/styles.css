@@ -102,14 +102,19 @@ a { color: inherit; }
   max-width: 38vw;
   display: block;
 }
-.mast__sep { color: var(--ink-faint); }
+.mast__sep {
+  color: var(--ink-faint);
+  transform: translateY(3px);
+}
 .mast__title {
   font-weight: 500; font-size: .95rem;
   color: var(--ink-soft);
+  transform: translateY(3px);
 }
 .mast__right {
   display: flex; align-items: center; gap: .5rem;
   color: var(--ink-soft);
+  transform: translateY(3px);
 }
 .mast__quote-label {
   font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
@@ -2307,10 +2312,14 @@ a { color: inherit; }
   .stickybar__group-label { display: none; }
 
   /* Tighter toggle buttons on mobile so Finish + Delivery fit on one row
-     even at 380px. Reads: Oiled|Raw  Pick up|Deliver to me. */
+     even at 380px. Reads: Oiled|Raw  Pick up|Deliver to me. The "to me"
+     suffix is dropped below 540px (see .stickybar__finish-btn-suffix
+     rule below) so even narrow phones (320–360px) keep both segmented
+     controls inline. */
   .stickybar__finish-btn {
-    padding: .35rem .55rem;
-    font-size: .74rem;
+    padding: .3rem .45rem;
+    font-size: .72rem;
+    letter-spacing: -.005em;
   }
 
   .stickybar__group:not(:has(.stickybar__delivery)) {
@@ -2377,6 +2386,15 @@ a { color: inherit; }
     text-align: center;
     line-height: 1.35;
   }
+}
+
+/* On narrow phones the Delivery toggle reads "Deliver" instead of "Deliver
+   to me" — saves about 50px of horizontal space and keeps the Finish +
+   Delivery toggles on one row even at 320–360px viewports. The suffix span
+   is rendered in the JSX so screen readers and desktop still read the
+   full "Deliver to me" label. */
+@media (max-width: 540px) {
+  .stickybar__finish-btn-suffix { display: none; }
 }
 
 /* ---------- reduced motion ---------- */

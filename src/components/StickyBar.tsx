@@ -207,7 +207,7 @@ export function StickyBar({
                   className={`stickybar__finish-btn${isDelivered ? " is-on" : ""}`}
                   onClick={pickDelivered}
                 >
-                  Deliver to me
+                  Deliver<span className="stickybar__finish-btn-suffix"> to me</span>
                 </button>
               </div>
               {isDelivered && (

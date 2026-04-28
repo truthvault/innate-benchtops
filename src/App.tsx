@@ -158,7 +158,7 @@ export default function App() {
       </header>
 
       <main className="stage">
-        <h1 className="stage__headline">Design your own solid timber benchtop</h1>
+        <h1 className="stage__headline">Design Your Bench Top</h1>
 
         {loadAdjustments.length > 0 && (
           <LoadAdjustmentNotice
