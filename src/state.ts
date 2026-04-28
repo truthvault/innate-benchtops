@@ -10,7 +10,7 @@ import {
   MIN_WIDTH_MM,
   PRICING,
 } from "./species";
-import type { FinishId, SpeciesId, Thickness } from "./species";
+import type { ColourId, FinishId, SpeciesId, Thickness } from "./species";
 import type { Cutout, Panel, Quote } from "./pricing";
 import type { ShippingMode } from "./shipping";
 
@@ -353,6 +353,7 @@ export const defaultQuote = (): Quote => ({
   panels: [blankPanel(panelDefaultLabel(0))],
   species: "rimu" as SpeciesId,
   finish: "oiled" as FinishId,
+  colour: "clear" as ColourId,
   shipping: defaultShipping(),
   customer: { name: "", email: "", phone: "", notes: "" },
   quoteNo: mintQuoteNo(),
@@ -385,6 +386,7 @@ const stripForShare = (q: Quote): ShareableQuote => ({
   panels: q.panels,
   species: q.species,
   finish: q.finish,
+  colour: q.colour,
   shipping: q.shipping,
   quoteNo: q.quoteNo,
 });
@@ -608,10 +610,14 @@ const rehydrate = (raw: LegacyQuote & { quoteNo?: string }): LoadResult => {
   // that pre-dated the structured `shipping` field) can't leak onto the
   // Quote and round-trip back into localStorage / the URL hash.
   const finish: FinishId = (raw.finish ?? defaultQuote().finish) as FinishId;
+  // Pre-colour quote hashes (V1/V2/V3) didn't carry a colour field; default
+  // to "clear" so they rehydrate without a Share-gate flicker.
+  const colour: ColourId = (raw.colour ?? defaultQuote().colour) as ColourId;
   const quote: Quote = {
     panels,
     species,
     finish,
+    colour,
     shipping: migrateShipping(raw),
     // Customer details are NEVER rehydrated. The share form starts empty
     // every load so stray partial state ("g", a half-typed phone, etc)

@@ -183,6 +183,7 @@ export function QuoteForm({
           quote: {
             species: sp.label ?? sp.name,
             finish: quote.finish,
+            colour: quote.colour,
             panels: quote.panels.map((p) => ({
               label: p.label,
               length: p.length,

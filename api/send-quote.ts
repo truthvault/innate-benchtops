@@ -53,6 +53,7 @@ interface PayloadPanel {
 interface PayloadQuote {
   species: string;
   finish: string;
+  colour: string;
   panels: PayloadPanel[];
 }
 
@@ -186,6 +187,8 @@ function validate(payload: SendQuotePayload): string | null {
 // ─── Email body composition ────────────────────────────────────────────
 
 const finishLabel = (f: string) => (f === "oiled" ? "Sanded & oiled" : "Raw");
+const colourLabel = (c: string) =>
+  c === "bark" ? "Country bark" : c === "darkwash" ? "Darkwash" : "Clear";
 
 const nzd = (n: number) =>
   new Intl.NumberFormat("en-NZ", {
@@ -286,6 +289,7 @@ export function textBody(payload: SendQuotePayload, shareUrl: string): string {
     `---------------------------------------`,
     `Timber:     ${quote.species}`,
     `Finish:     ${finishLabel(quote.finish)}`,
+    `Colour:     ${colourLabel(quote.colour)}`,
     `Panels:`,
     panelRows(quote),
     `Delivery:   ${totals.shipping.label}${totals.shipping.cost > 0 ? ` · ${nzd(totals.shipping.cost)}` : ""}`,
@@ -408,6 +412,7 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
       <table style="width:100%;border-collapse:collapse;margin:16px 0 8px;font-size:14px">
         <tr><td style="padding:4px 8px;color:#14141399;width:110px">Timber</td><td style="padding:4px 8px">${esc(quote.species)}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Finish</td><td style="padding:4px 8px">${esc(finishLabel(quote.finish))}</td></tr>
+        <tr><td style="padding:4px 8px;color:#14141399">Colour</td><td style="padding:4px 8px">${esc(colourLabel(quote.colour))}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399;vertical-align:top">Panels</td><td style="padding:0"><table style="border-collapse:collapse">${rows}</table></td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Delivery</td><td style="padding:4px 8px">${esc(totals.shipping.label)}${totals.shipping.cost > 0 ? ` · ${esc(nzd(totals.shipping.cost))}` : ""}</td></tr>
         <tr><td style="padding:4px 8px;color:#14141399">Dispatch</td><td style="padding:4px 8px">Estimated ${esc(dispatchWeek)}</td></tr>

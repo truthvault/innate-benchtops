@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Cutout, Panel } from "../pricing";
 import { formatNZD } from "../pricing";
 import {
+  COLOURS,
   findSpecies,
   MAX_LENGTH_MM,
   MAX_QUANTITY,
@@ -10,6 +11,7 @@ import {
   MIN_QUANTITY,
   MIN_THICKNESS_MM,
   MIN_WIDTH_MM,
+  type ColourId,
   type FinishId,
   type SpeciesId,
 } from "../species";
@@ -26,6 +28,8 @@ interface Props {
    *  row (one quote-level value, displayed alongside the per-panel cutouts
    *  control). */
   finish: FinishId;
+  /** Quote-level stain colour. Same pattern as `finish`. */
+  colour: ColourId;
   freshId: string | null;
   /**
    * Per-panel line price (incl GST, × quantity) keyed by panel id.
@@ -38,11 +42,12 @@ interface Props {
   onAdd: () => void;
   onCutoutChange: (panelId: string, cutoutId: string, updates: Partial<Cutout>) => void;
   onFinishChange: (f: FinishId) => void;
+  onColourChange: (c: ColourId) => void;
 }
 
 export function PanelEditor({
-  panels, species, finish, freshId, priceByPanelId,
-  onUpdate, onRemove, onAdd, onCutoutChange, onFinishChange,
+  panels, species, finish, colour, freshId, priceByPanelId,
+  onUpdate, onRemove, onAdd, onCutoutChange, onFinishChange, onColourChange,
 }: Props) {
   return (
     <section className="panel-editor" aria-label="Panels">
@@ -53,6 +58,7 @@ export function PanelEditor({
             panel={p}
             species={species}
             finish={finish}
+            colour={colour}
             fresh={p.id === freshId}
             canRemove={panels.length > 1}
             lineTotal={priceByPanelId[p.id] ?? 0}
@@ -60,6 +66,7 @@ export function PanelEditor({
             onRemove={() => onRemove(p.id)}
             onCutoutChange={(cutoutId, updates) => onCutoutChange(p.id, cutoutId, updates)}
             onFinishChange={onFinishChange}
+            onColourChange={onColourChange}
           />
         ))}
       </ul>
@@ -77,6 +84,7 @@ interface RowProps {
   panel: Panel;
   species: SpeciesId;
   finish: FinishId;
+  colour: ColourId;
   fresh: boolean;
   canRemove: boolean;
   lineTotal: number;
@@ -84,13 +92,14 @@ interface RowProps {
   onRemove: () => void;
   onCutoutChange: (cutoutId: string, updates: Partial<Cutout>) => void;
   onFinishChange: (f: FinishId) => void;
+  onColourChange: (c: ColourId) => void;
 }
 
 type DimKey = "length" | "width" | "thickness" | "quantity";
 
 function PanelRow({
-  panel, species, finish, fresh, canRemove, lineTotal,
-  onUpdate, onRemove, onCutoutChange, onFinishChange,
+  panel, species, finish, colour, fresh, canRemove, lineTotal,
+  onUpdate, onRemove, onCutoutChange, onFinishChange, onColourChange,
 }: RowProps) {
   const speciesObj = findSpecies(species);
   const maxThickness = speciesObj.maxThicknessMm;
@@ -272,6 +281,28 @@ function PanelRow({
             >
               Raw
             </button>
+          </div>
+        </div>
+        <div className="panel-row__colour">
+          <span className="panel-row__colour-label">Colour</span>
+          <div
+            className="panel-row__colour-swatches"
+            role="radiogroup"
+            aria-label="Stain colour"
+          >
+            {COLOURS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={colour === c.id}
+                aria-label={c.name}
+                title={c.name}
+                className={`panel-row__colour-swatch${colour === c.id ? " is-on" : ""}`}
+                style={{ background: c.swatch }}
+                onClick={() => onColourChange(c.id)}
+              />
+            ))}
           </div>
         </div>
       </div>

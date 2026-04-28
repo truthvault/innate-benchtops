@@ -5,7 +5,7 @@ import {
   PRICING,
   findSpecies,
 } from "./species";
-import type { FinishId, SpeciesId, Thickness } from "./species";
+import type { ColourId, FinishId, SpeciesId, Thickness } from "./species";
 import type { ShippingMode } from "./shipping";
 import { shippingCost } from "./shipping";
 
@@ -35,6 +35,10 @@ export interface Quote {
   panels: Panel[];
   species: SpeciesId;
   finish: FinishId;
+  /** Stain colour applied on top of the chosen species. Quote-level —
+   *  same colour applies to every panel. Same price across all three
+   *  options (no pricing branch in calcPanel). */
+  colour: ColourId;
   shipping: ShippingMode;
   customer: { name: string; email: string; phone: string; notes: string };
   /** Stable customer-facing reference like "INT-651". Persisted with the quote. */

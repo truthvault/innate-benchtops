@@ -3,7 +3,26 @@ import pricingJson from "../mock-data/pricing.json";
 
 export type SpeciesId = "rimu" | "totara" | "beech";
 export type FinishId = "oiled" | "raw";
+export type ColourId = "clear" | "bark" | "darkwash";
 export type Thickness = number;
+
+/** Stain colour applied on top of the timber. Same three options across
+ *  every species — the visual difference is the depth of the tone, not
+ *  the timber's grain. `clear` is the natural, unstained look. */
+export interface Colour {
+  id: ColourId;
+  name: string;
+  /** Approximate fill hex for the swatch dot in the picker. The actual
+   *  rendered slab tint comes from the slab preview's filter (TODO). */
+  swatch: string;
+}
+export const COLOURS: Colour[] = [
+  { id: "clear",    name: "Clear",        swatch: "#d4b896" },
+  { id: "bark",     name: "Country bark", swatch: "#8b5a3c" },
+  { id: "darkwash", name: "Darkwash",     swatch: "#3d2817" },
+];
+export const findColour = (id: ColourId): Colour =>
+  COLOURS.find((c) => c.id === id) ?? COLOURS[0];
 
 export interface GrainPalette {
   base: string;

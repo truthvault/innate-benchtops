@@ -13,7 +13,7 @@ import {
   quoteHasMainPanel,
   type Adjustment,
 } from "./state";
-import { findSpecies, type FinishId, type SpeciesId } from "./species";
+import { findSpecies, type ColourId, type FinishId, type SpeciesId } from "./species";
 import { SlabPreview } from "./components/SlabPreview";
 import { PanelEditor } from "./components/PanelEditor";
 import { TimberPicker } from "./components/TimberPicker";
@@ -105,6 +105,8 @@ export default function App() {
     }), []);
   const setFinish = useCallback((finish: FinishId) =>
     setQuote((q) => ({ ...q, finish })), []);
+  const setColour = useCallback((colour: ColourId) =>
+    setQuote((q) => ({ ...q, colour })), []);
   const setShipping = useCallback((shipping: ShippingMode) =>
     setQuote((q) => ({ ...q, shipping })), []);
   const patchCustomer = useCallback(
@@ -183,6 +185,7 @@ export default function App() {
             panels={quote.panels}
             species={quote.species}
             finish={quote.finish}
+            colour={quote.colour}
             freshId={freshId}
             priceByPanelId={panelPriceMap(totals)}
             onUpdate={updatePanel}
@@ -190,6 +193,7 @@ export default function App() {
             onAdd={addPanel}
             onCutoutChange={setCutout}
             onFinishChange={setFinish}
+            onColourChange={setColour}
           />
 
           <TimberPicker value={quote.species} onChange={setSpecies} />
