@@ -18,8 +18,8 @@ export interface Colour {
 }
 export const COLOURS: Colour[] = [
   { id: "clear",    name: "Clear",        swatch: "#d4b896" },
-  { id: "bark",     name: "Country bark", swatch: "#8b5a3c" },
-  { id: "darkwash", name: "Darkwash",     swatch: "#3d2817" },
+  { id: "bark",     name: "Country bark", swatch: "#65411f" },
+  { id: "darkwash", name: "Darkwash",     swatch: "#1a1108" },
 ];
 export const findColour = (id: ColourId): Colour =>
   COLOURS.find((c) => c.id === id) ?? COLOURS[0];

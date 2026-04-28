@@ -454,6 +454,11 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   gap: .2rem;
+  /* Anchor children to the right edge of the cell so a longer active
+     colour name (e.g. "Country bark") widens the cell to the left
+     without dragging the swatches with it — they stay locked at the
+     right edge regardless of label length. */
+  align-items: flex-end;
 }
 .panel-row__colour-label {
   font-size: .72rem;
