@@ -318,18 +318,12 @@ export const blankPanel = (label = ""): Panel => ({
   cutouts: [],
 });
 
-/** Default friendly label for the panel at position `index` ("Panel one",
- *  "Panel two", … falling back to numeric for >10). The customer is
- *  encouraged to rename — this just makes the field's editable nature
- *  obvious from first paint instead of relying on the placeholder. */
-const PANEL_NUMBER_WORDS = [
-  "one", "two", "three", "four", "five",
-  "six", "seven", "eight", "nine", "ten",
-];
+/** Default friendly label for the panel at position `index` ("Panel 1",
+ *  "Panel 2", …). The customer is encouraged to rename — this just makes
+ *  the field's editable nature obvious from first paint instead of
+ *  relying on the placeholder. */
 export const panelDefaultLabel = (index: number): string =>
-  PANEL_NUMBER_WORDS[index]
-    ? `Panel ${PANEL_NUMBER_WORDS[index]}`
-    : `Panel ${index + 1}`;
+  `Panel ${index + 1}`;
 
 // Default to "delivering" (Deliver to me, no address yet) so the first
 // thing a customer sees on the sticky bar is a clear prompt to enter

@@ -116,10 +116,10 @@ a { color: inherit; }
   text-align: center;
   margin: 0;
   font-family: "Fraunces", "Maven Pro", Georgia, serif;
-  font-weight: 400;
+  font-weight: 550;
   font-variation-settings: "opsz" 96, "SOFT" 50;
   letter-spacing: -.018em;
-  font-size: clamp(1.25rem, 3.4vw, 1.85rem);
+  font-size: clamp(1.4rem, 3.8vw, 2.15rem);
   line-height: 1.1;
   color: var(--forest-ink);
   white-space: nowrap;
@@ -147,7 +147,7 @@ a { color: inherit; }
 @media (max-width: 480px) {
   .mast { padding: .65rem .9rem; gap: .6rem; }
   .mast__quote-label { display: none; }
-  .mast__title { font-size: clamp(1.05rem, 4.4vw, 1.35rem); }
+  .mast__title { font-size: clamp(1.2rem, 4.8vw, 1.55rem); }
 }
 
 /* ---------- stage (single column, slab on top) ---------- */
