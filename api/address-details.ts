@@ -6,6 +6,22 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 // Paired with /api/address-autocomplete via a shared session token so
 // Google treats autocomplete → details as one billable session.
 
+const ALLOWED_ORIGINS = new Set([
+  "https://innatefurniture.co.nz",
+  "https://innate-furniture.myshopify.com",
+]);
+
+function applyCors(req: IncomingMessage, res: ServerResponse): void {
+  const origin = req.headers.origin;
+  res.setHeader("Vary", "Origin");
+  if (typeof origin === "string" && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "content-type");
+    res.setHeader("Access-Control-Max-Age", "86400");
+  }
+}
+
 interface GoogleDetailsResponse {
   status: string;
   error_message?: string;
@@ -19,6 +35,14 @@ export default async function handler(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
+  applyCors(req, res);
+
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
   res.setHeader("content-type", "application/json");
 
   if (req.method !== "GET") {
