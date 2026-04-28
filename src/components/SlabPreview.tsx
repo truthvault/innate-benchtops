@@ -423,15 +423,15 @@ export function SlabPreview({
             lift the negative offsets in the last column rather than
             softening the diagonals.
 
-            Country bark — deep neutral brown (walnut/dark oak family).
-            Earlier iterations crushed green hard but left blue near
-            zero, which read as red-brown rather than true brown. This
-            version keeps the R diagonal moderate (0.38) and lifts blue
-            to 0.25 so the output has the slight cool undertone genuine
-            brown carries. A bright wood pixel (255, 230, 150) maps to
-            ~(107, 75, 64), and a mid-tone (200, 150, 90) maps to
-            ~(79, 49, 40) — both sit cleanly in the dark walnut /
-            saddle brown range, no longer leaning red.
+            Country bark — deep neutral brown. R diagonal pulled down
+            hard (0.32) with G lifted slightly (0.22) so output R/G
+            sits in the 1.1–1.3 range — the genuine-brown band, not
+            the red-brown band that stronger R coefficients produce.
+            Combined with B at 0.25 for the cool undertone, output
+            reads as oak/walnut rather than chestnut/red. A bright
+            wood pixel (255, 230, 150) maps to ~(90, 79, 59) ≈
+            #5a4f3b, and a mid-tone (200, 150, 90) maps to ~(66, 51, 35)
+            ≈ #423322 — true browns with no red dominance.
             Darkwash — near-black, deeper than before. All diagonals
             now down to 4–10%; combined with negative offsets, even
             mid-tones crush below 30 in every channel and dark areas
@@ -442,9 +442,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.38 0.05 0.06 0 -0.04
-                0.13 0.20 0.06 0 -0.05
-                0.08 0.06 0.25 0 -0.03
+                0.32 0.05 0.05 0 -0.04
+                0.13 0.22 0.05 0 -0.05
+                0.07 0.06 0.25 0 -0.04
                 0    0    0    1  0"
             />
           </filter>
@@ -452,9 +452,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.38 0.05 0.06 0 -0.04
-                0.13 0.20 0.06 0 -0.05
-                0.08 0.06 0.25 0 -0.03
+                0.32 0.05 0.05 0 -0.04
+                0.13 0.22 0.05 0 -0.05
+                0.07 0.06 0.25 0 -0.04
                 0    0    0    1  0"
               result="bark"
             />

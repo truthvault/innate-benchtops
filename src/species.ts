@@ -18,7 +18,7 @@ export interface Colour {
 }
 export const COLOURS: Colour[] = [
   { id: "clear",    name: "Clear",        swatch: "#d4b896" },
-  { id: "bark",     name: "Country bark", swatch: "#553a2c" },
+  { id: "bark",     name: "Country bark", swatch: "#4a3d2c" },
   { id: "darkwash", name: "Darkwash",     swatch: "#0d0903" },
 ];
 export const findColour = (id: ColourId): Colour =>
