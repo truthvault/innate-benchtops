@@ -4,6 +4,7 @@ import {
   findSpecies,
   MIN_LENGTH_MM,
   MIN_WIDTH_MM,
+  type ColourId,
   type FinishId,
   type SpeciesId,
 } from "../species";
@@ -13,6 +14,7 @@ interface Props {
   panels: Panel[];
   species: SpeciesId;
   finish: FinishId;
+  colour: ColourId;
   onCutoutChange?: (panelId: string, cutoutId: string, updates: Partial<Cutout>) => void;
   /** Narrow patch for on-canvas dim editing (click a label, or drag an edge/corner). */
   onPanelChange?: (panelId: string, updates: Partial<Pick<Panel, "length" | "width">>) => void;
@@ -103,7 +105,7 @@ type EditingState =
   | { kind: "panel"; panelId: string; field: PanelField };
 
 export function SlabPreview({
-  panels, species, finish, onCutoutChange, onPanelChange,
+  panels, species, finish, colour, onCutoutChange, onPanelChange,
 }: Props) {
   const sp = findSpecies(species);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -135,7 +137,16 @@ export function SlabPreview({
     : baseLayout.boxes;
   const scale = active ? active.scale : baseLayout.scale;
 
-  const filterId = finish === "raw" ? "url(#finish-raw)" : undefined;
+  // Compose colour × finish into a single filter id. `clear` + `oiled` is
+  // the natural look (no transform). Other combinations reference filters
+  // defined in the SVG <defs> below; for a colour + raw combination the
+  // filter chains the colour matrix into the raw matrix internally.
+  const filterId =
+    colour === "clear" && finish === "oiled"
+      ? undefined
+      : colour === "clear" && finish === "raw"
+        ? "url(#finish-raw)"
+        : `url(#colour-${colour}${finish === "raw" ? "-raw" : ""})`;
 
   const commitEdit = (placed: PlacedCutout, field: CutoutField, raw: string) => {
     if (!onCutoutChange) { setEditing(null); return; }
@@ -394,6 +405,81 @@ export function SlabPreview({
         <defs>
           <filter id="finish-raw" x="0" y="0" width="100%" height="100%">
             <feColorMatrix
+              type="matrix"
+              values="
+                0.78 0.15 0.07 0 0.02
+                0.15 0.78 0.07 0 0.02
+                0.10 0.12 0.78 0 0.02
+                0    0    0    1 0"
+            />
+          </filter>
+
+          {/*
+            Colour stain matrices. Each row is `r g b a offset` for the
+            corresponding output channel. These are intentionally subtle
+            tints — they should look like a stain layered on the timber
+            photo, not like a flat overlay. Tune by eye against the three
+            species photos; if a tint reads too strongly on one species,
+            soften the diagonal coefficients first.
+
+            "Country bark" — warm medium brown stain. Shifts the photo
+            toward red-brown by lifting the red channel slightly,
+            holding the green, and damping the blue.
+            "Darkwash"     — deep espresso. Heavily darkens overall and
+            keeps a brown bias by holding red higher than green/blue.
+          */}
+          <filter id="colour-bark" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                1.06  0.06 -0.02 0  0.02
+                0.04  0.94  0.02 0 -0.02
+               -0.04 -0.02  0.78 0 -0.04
+                0     0     0    1  0"
+            />
+          </filter>
+          <filter id="colour-bark-raw" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                1.06  0.06 -0.02 0  0.02
+                0.04  0.94  0.02 0 -0.02
+               -0.04 -0.02  0.78 0 -0.04
+                0     0     0    1  0"
+              result="bark"
+            />
+            <feColorMatrix
+              in="bark"
+              type="matrix"
+              values="
+                0.78 0.15 0.07 0 0.02
+                0.15 0.78 0.07 0 0.02
+                0.10 0.12 0.78 0 0.02
+                0    0    0    1 0"
+            />
+          </filter>
+          <filter id="colour-darkwash" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                0.62 0.10 0.04 0 -0.06
+                0.20 0.50 0.04 0 -0.10
+                0.08 0.08 0.40 0 -0.10
+                0    0    0    1  0"
+            />
+          </filter>
+          <filter id="colour-darkwash-raw" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                0.62 0.10 0.04 0 -0.06
+                0.20 0.50 0.04 0 -0.10
+                0.08 0.08 0.40 0 -0.10
+                0    0    0    1  0"
+              result="darkwash"
+            />
+            <feColorMatrix
+              in="darkwash"
               type="matrix"
               values="
                 0.78 0.15 0.07 0 0.02

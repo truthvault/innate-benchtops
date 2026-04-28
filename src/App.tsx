@@ -175,6 +175,7 @@ export default function App() {
             panels={quote.panels}
             species={quote.species}
             finish={quote.finish}
+            colour={quote.colour}
             onCutoutChange={setCutout}
             onPanelChange={patchPanel}
           />

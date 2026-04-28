@@ -3,6 +3,7 @@ import type { Cutout, Panel } from "../pricing";
 import { formatNZD } from "../pricing";
 import {
   COLOURS,
+  findColour,
   findSpecies,
   MAX_LENGTH_MM,
   MAX_QUANTITY,
@@ -284,7 +285,9 @@ function PanelRow({
           </div>
         </div>
         <div className="panel-row__colour">
-          <span className="panel-row__colour-label">Colour</span>
+          <span className="panel-row__colour-label">
+            Colour <em>· {findColour(colour).name}</em>
+          </span>
           <div
             className="panel-row__colour-swatches"
             role="radiogroup"

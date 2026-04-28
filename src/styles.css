@@ -461,6 +461,14 @@ a { color: inherit; }
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+.panel-row__colour-label em {
+  font-style: normal;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  margin-left: .15rem;
+}
 .panel-row__colour-swatches {
   display: inline-flex;
   gap: .35rem;
