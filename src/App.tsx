@@ -8,6 +8,7 @@ import {
   defaultQuote,
   loadInitial,
   normalizePanel,
+  panelDefaultLabel,
   persist,
   quoteHasMainPanel,
   type Adjustment,
@@ -82,10 +83,13 @@ export default function App() {
     })), []);
 
   const addPanel = useCallback(() => {
-    const p = blankPanel("");
-    setFreshId(p.id);
-    setQuote((q) => ({ ...q, panels: [...q.panels, p] }));
-    window.setTimeout(() => setFreshId(null), 700);
+    setFreshId(null);
+    setQuote((q) => {
+      const p = blankPanel(panelDefaultLabel(q.panels.length));
+      window.setTimeout(() => setFreshId(p.id), 0);
+      window.setTimeout(() => setFreshId(null), 700);
+      return { ...q, panels: [...q.panels, p] };
+    });
   }, []);
 
   const setSpecies = useCallback((species: SpeciesId) =>

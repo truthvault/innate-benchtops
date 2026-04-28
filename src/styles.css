@@ -288,15 +288,47 @@ a { color: inherit; }
   align-items: center;
   margin-bottom: .6rem;
 }
+/* Editable name affordance: the label sits in a tinted, bordered chip
+   with a small pencil icon at the right, so it reads as a clickable
+   text field rather than static text. Click anywhere on the chip
+   focuses the input. */
+.panel-row__name {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: text;
+  min-width: 0;
+}
 .panel-row__label {
   flex: 1;
   font-size: .92rem; font-weight: 500;
-  background: transparent;
-  border: 0;
-  padding: .3rem 0;
-  border-bottom: 1px dashed var(--stone-200);
+  background: var(--stone-50);
+  color: var(--ink);
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius);
+  padding: .35rem 1.7rem .35rem .55rem;
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+  min-width: 0;
 }
-.panel-row__label:focus { border-bottom-color: var(--forest); outline: none; }
+.panel-row__label::placeholder { color: var(--ink-faint); font-weight: 400; }
+.panel-row__name:hover .panel-row__label { border-color: var(--stone-300); }
+.panel-row__label:focus {
+  border-color: var(--forest);
+  background: var(--paper);
+  outline: none;
+}
+.panel-row__name-icon {
+  position: absolute;
+  right: .55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+  transition: color .15s var(--ease);
+}
+.panel-row__name:hover .panel-row__name-icon { color: var(--forest); }
+.panel-row__label:focus + .panel-row__name-icon { color: var(--forest); }
 .panel-row__remove {
   color: var(--ink-soft);
   padding: .35rem;

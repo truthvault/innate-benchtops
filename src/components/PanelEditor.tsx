@@ -45,19 +45,7 @@ export function PanelEditor({
   onUpdate, onRemove, onAdd, onCutoutChange, onFinishChange,
 }: Props) {
   return (
-    <section className="panel-editor" aria-labelledby="panel-editor-h">
-      <header className="panel-editor__head">
-        <h2 id="panel-editor-h">Panels</h2>
-        <span className="panel-editor__count">
-          {(() => {
-            const units = panels.reduce(
-              (s, p) => s + Math.max(1, Math.floor(p.quantity) || 1),
-              0,
-            );
-            return `${units} ${units === 1 ? "piece" : "pieces"}`;
-          })()}
-        </span>
-      </header>
+    <section className="panel-editor" aria-label="Panels">
       <ul className="panel-editor__list" role="list">
         {panels.map((p) => (
           <PanelRow
@@ -166,13 +154,31 @@ function PanelRow({
   return (
     <li className={`panel-row${fresh ? " is-fresh" : ""}`}>
       <div className="panel-row__top">
-        <input
-          ref={labelRef}
-          className="panel-row__label"
-          value={panel.label}
-          placeholder="Name this piece (optional)"
-          onChange={(e) => onUpdate({ ...panel, label: e.target.value })}
-        />
+        <label className="panel-row__name" aria-label="Panel name">
+          <input
+            ref={labelRef}
+            className="panel-row__label"
+            value={panel.label}
+            placeholder="Name this piece"
+            onChange={(e) => onUpdate({ ...panel, label: e.target.value })}
+          />
+          <svg
+            className="panel-row__name-icon"
+            viewBox="0 0 16 16"
+            width="13"
+            height="13"
+            aria-hidden
+          >
+            <path
+              d="M11.4 1.9l2.7 2.7L5.6 13H3v-2.6L11.4 1.9z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </label>
         <div className="panel-row__subtotal" aria-label="Cost for this panel">
           <span className="panel-row__subtotal-label">This panel</span>
           <span className="panel-row__subtotal-value">{formatNZD(lineTotal)}</span>
@@ -222,14 +228,12 @@ function PanelRow({
           warning={warnings.thickness}
           onCommit={(n) => commitDim("thickness", n)}
         />
-        <NumField
+        <Stepper
           label="Qty"
           value={panel.quantity}
           min={MIN_QUANTITY}
           max={MAX_QUANTITY}
-          step={1}
-          warning={warnings.quantity}
-          onCommit={(n) => commitDim("quantity", n)}
+          onChange={(n) => commitDim("quantity", n)}
         />
       </div>
 
