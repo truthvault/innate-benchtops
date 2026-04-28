@@ -148,9 +148,8 @@ export default function App() {
             src="https://innatefurniture.co.nz/cdn/shop/files/Innate_Logo_Concept_1.png?width=360"
             alt="Innate Furniture"
           />
-          <span className="mast__sep" aria-hidden>·</span>
-          <span className="mast__title">Benchtops</span>
         </div>
+        <h1 className="mast__title">Bench Top Designer</h1>
         <div className="mast__right">
           <span className="mast__quote-label">Quote</span>
           <span className="mast__quote-no">{quote.quoteNo}</span>
@@ -158,8 +157,6 @@ export default function App() {
       </header>
 
       <main className="stage">
-        <h1 className="stage__headline">Design Your Bench Top</h1>
-
         {loadAdjustments.length > 0 && (
           <LoadAdjustmentNotice
             adjustments={loadAdjustments}
