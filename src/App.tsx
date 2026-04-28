@@ -181,12 +181,14 @@ export default function App() {
           <PanelEditor
             panels={quote.panels}
             species={quote.species}
+            finish={quote.finish}
             freshId={freshId}
             priceByPanelId={panelPriceMap(totals)}
             onUpdate={updatePanel}
             onRemove={removePanel}
             onAdd={addPanel}
             onCutoutChange={setCutout}
+            onFinishChange={setFinish}
           />
 
           <TimberPicker value={quote.species} onChange={setSpecies} />
@@ -196,10 +198,8 @@ export default function App() {
       <StickyBar
         totals={totals}
         shippingMode={quote.shipping}
-        finish={quote.finish}
         leadTimeWeeks={totals.leadTimeWeeks}
         hasMainPanel={hasMainPanel}
-        onFinishChange={setFinish}
         onShippingChange={setShipping}
         onRequest={() => setModalOpen(true)}
       />

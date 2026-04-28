@@ -314,6 +314,54 @@ a { color: inherit; }
   margin-top: .7rem;
   padding-top: .7rem;
   border-top: 1px dashed var(--stone-200);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem 1rem;
+  align-items: end;
+}
+
+/* Finish toggle, sits in the right half of .panel-row__cutouts.
+   Mirrors the Stepper above it: small uppercase label, then the
+   segmented control beneath. Bound to quote.finish — toggling in any
+   panel row updates the quote-level value, so the visible state stays
+   in sync across all panel rows. */
+.panel-row__finish {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+.panel-row__finish-label {
+  font-size: .72rem;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.panel-row__finish-controls {
+  display: inline-flex;
+  border: 1px solid var(--stone-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--paper);
+  height: 32px;
+  align-self: flex-start;
+}
+.panel-row__finish-btn {
+  flex: 1 1 50%;
+  padding: 0 .8rem;
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  transition: background .12s var(--ease), color .12s var(--ease);
+}
+.panel-row__finish-btn:hover { color: var(--ink-soft); }
+.panel-row__finish-btn + .panel-row__finish-btn {
+  border-left: 1px solid var(--stone-200);
+}
+.panel-row__finish-btn.is-on {
+  background: var(--forest);
+  color: #f3f0ee;
 }
 .panel-row__subtotal {
   display: inline-flex;

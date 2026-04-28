@@ -2,27 +2,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Totals } from "../pricing";
 import { formatNZD } from "../pricing";
 import type { ShippingMode } from "../shipping";
-import type { FinishId } from "../species";
 import { formatDispatchWeek } from "../dispatch-date";
 import { AddressSearch } from "./AddressSearch";
 
 interface Props {
   totals: Totals;
   shippingMode: ShippingMode;
-  finish: FinishId;
   leadTimeWeeks: number;
   /** True when at least one panel meets the full main-benchtop spec
    *  (see quoteHasMainPanel in src/state.ts). When false, Share is
    *  HTML-disabled and a persistent warning sits above the button. */
   hasMainPanel: boolean;
-  onFinishChange: (f: FinishId) => void;
   onShippingChange: (m: ShippingMode) => void;
   onRequest: () => void;
 }
 
 export function StickyBar({
-  totals, shippingMode, finish, leadTimeWeeks, hasMainPanel,
-  onFinishChange, onShippingChange, onRequest,
+  totals, shippingMode, leadTimeWeeks, hasMainPanel,
+  onShippingChange, onRequest,
 }: Props) {
   const [prior, setPrior] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -155,31 +152,6 @@ export function StickyBar({
 
       <div className="stickybar" role="region" aria-label="Quote total">
         <div className="stickybar__inner">
-          {/* Finish */}
-          <div className="stickybar__group">
-            <span className="stickybar__group-label">Finish</span>
-            <div className="stickybar__finish" role="radiogroup" aria-label="Finish">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={finish === "oiled"}
-                className={`stickybar__finish-btn${finish === "oiled" ? " is-on" : ""}`}
-                onClick={() => onFinishChange("oiled")}
-              >
-                Oiled
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={finish === "raw"}
-                className={`stickybar__finish-btn${finish === "raw" ? " is-on" : ""}`}
-                onClick={() => onFinishChange("raw")}
-              >
-                Raw
-              </button>
-            </div>
-          </div>
-
           {/* Delivery: Pickup / Delivered segmented + address input */}
           <div className="stickybar__group">
             <span className="stickybar__group-label">Delivery</span>

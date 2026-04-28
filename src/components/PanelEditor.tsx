@@ -10,6 +10,7 @@ import {
   MIN_QUANTITY,
   MIN_THICKNESS_MM,
   MIN_WIDTH_MM,
+  type FinishId,
   type SpeciesId,
 } from "../species";
 import {
@@ -21,6 +22,10 @@ import {
 interface Props {
   panels: Panel[];
   species: SpeciesId;
+  /** Quote-level finish. Bound to the toggle that lives inside each panel
+   *  row (one quote-level value, displayed alongside the per-panel cutouts
+   *  control). */
+  finish: FinishId;
   freshId: string | null;
   /**
    * Per-panel line price (incl GST, × quantity) keyed by panel id.
@@ -32,10 +37,12 @@ interface Props {
   onRemove: (id: string) => void;
   onAdd: () => void;
   onCutoutChange: (panelId: string, cutoutId: string, updates: Partial<Cutout>) => void;
+  onFinishChange: (f: FinishId) => void;
 }
 
 export function PanelEditor({
-  panels, species, freshId, priceByPanelId, onUpdate, onRemove, onAdd, onCutoutChange,
+  panels, species, finish, freshId, priceByPanelId,
+  onUpdate, onRemove, onAdd, onCutoutChange, onFinishChange,
 }: Props) {
   return (
     <section className="panel-editor" aria-labelledby="panel-editor-h">
@@ -57,12 +64,14 @@ export function PanelEditor({
             key={p.id}
             panel={p}
             species={species}
+            finish={finish}
             fresh={p.id === freshId}
             canRemove={panels.length > 1}
             lineTotal={priceByPanelId[p.id] ?? 0}
             onUpdate={(next) => onUpdate(p.id, next)}
             onRemove={() => onRemove(p.id)}
             onCutoutChange={(cutoutId, updates) => onCutoutChange(p.id, cutoutId, updates)}
+            onFinishChange={onFinishChange}
           />
         ))}
       </ul>
@@ -83,18 +92,21 @@ export function PanelEditor({
 interface RowProps {
   panel: Panel;
   species: SpeciesId;
+  finish: FinishId;
   fresh: boolean;
   canRemove: boolean;
   lineTotal: number;
   onUpdate: (next: Panel) => void;
   onRemove: () => void;
   onCutoutChange: (cutoutId: string, updates: Partial<Cutout>) => void;
+  onFinishChange: (f: FinishId) => void;
 }
 
 type DimKey = "length" | "width" | "thickness" | "quantity";
 
 function PanelRow({
-  panel, species, fresh, canRemove, lineTotal, onUpdate, onRemove, onCutoutChange,
+  panel, species, finish, fresh, canRemove, lineTotal,
+  onUpdate, onRemove, onCutoutChange, onFinishChange,
 }: RowProps) {
   const speciesObj = findSpecies(species);
   const maxThickness = speciesObj.maxThicknessMm;
@@ -236,6 +248,33 @@ function PanelRow({
             }
           }}
         />
+        <div className="panel-row__finish">
+          <span className="panel-row__finish-label">Finish</span>
+          <div
+            className="panel-row__finish-controls"
+            role="radiogroup"
+            aria-label="Finish"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={finish === "oiled"}
+              className={`panel-row__finish-btn${finish === "oiled" ? " is-on" : ""}`}
+              onClick={() => onFinishChange("oiled")}
+            >
+              Oiled
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={finish === "raw"}
+              className={`panel-row__finish-btn${finish === "raw" ? " is-on" : ""}`}
+              onClick={() => onFinishChange("raw")}
+            >
+              Raw
+            </button>
+          </div>
+        </div>
       </div>
 
       {panel.cutouts.length > 0 && (
