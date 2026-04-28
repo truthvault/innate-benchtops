@@ -95,12 +95,13 @@ a { color: inherit; }
   background: var(--stone-50);
   position: sticky; top: 0; z-index: 20;
 }
-.mast__left { display: flex; align-items: center; gap: .55rem; }
+.mast__left { display: flex; align-items: baseline; gap: .55rem; }
 .mast__logo {
   height: auto;
-  width: 140px;
-  max-width: 40vw;
+  width: 120px;
+  max-width: 38vw;
   display: block;
+  transform: translateY(4px);
 }
 .mast__sep { color: var(--ink-faint); }
 .mast__title {
@@ -2300,24 +2301,25 @@ a { color: inherit; }
 @media (max-width: 720px) {
   .stickybar__inner {
     flex-wrap: wrap;
-    padding: .5rem 1rem;
-    gap: .5rem .6rem;
+    padding: .35rem 1rem;
+    gap: .35rem .4rem;
   }
   .stickybar__lead { display: none; }
+  .stickybar__group-label { display: none; }
 
   .stickybar__group:not(:has(.stickybar__delivery)) {
     flex: 0 0 auto;
   }
   .stickybar__group:has(.stickybar__delivery) {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     min-width: 0;
     max-width: none;
     align-items: flex-start;
   }
   .stickybar__delivery {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
     flex-wrap: wrap;
-    gap: .4rem .3rem;
+    gap: .35rem .3rem;
     min-width: 0;
     max-width: none;
   }
@@ -2327,9 +2329,37 @@ a { color: inherit; }
     min-width: 0;
   }
 
-  .stickybar__cta-wrap { flex: 1 1 auto; }
-  .stickybar__cta { flex: 1 1 auto; justify-content: center; width: 100%; }
-  .stickybar__price--btn { flex: 0 0 auto; }
+  /* Order on mobile: toggles row, address row (when delivering), total row,
+     share row. The price button moves above the share CTA via CSS order so
+     the visual sequence reads price → action. */
+  .stickybar__price--btn {
+    order: 1;
+    flex: 1 1 100%;
+    flex-direction: row;
+    align-items: baseline;
+    width: 100%;
+    padding: .15rem 0;
+  }
+  .stickybar__price--btn .stickybar__amount { font-size: 1.4rem; }
+  .stickybar__price--btn .stickybar__note { display: none; }
+  .stickybar__price--btn .stickybar__breakdown-link {
+    margin-left: auto;
+    font-size: .82rem;
+  }
+
+  .stickybar__cta-wrap { order: 2; flex: 1 1 100%; }
+  .stickybar__cta {
+    flex: 1 1 auto;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    padding: .55rem 1rem;
+    font-size: .95rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 1px 0 rgba(12, 32, 28, 0.18),
+      0 3px 10px rgba(22, 56, 50, 0.20);
+  }
 
   /* Hint can wrap on narrow screens so a longer message doesn't overflow. */
   .stickybar__hint {
