@@ -63,16 +63,12 @@ export function PanelEditor({
           />
         ))}
       </ul>
-      <button type="button" className="btn-ghost panel-editor__add" onClick={onAdd}>
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+      <button type="button" className="panel-editor__add" onClick={onAdd}>
+        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden>
           <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         Add another panel
       </button>
-      <p className="cutout-list__hint panel-editor__floor-hint">
-        Each quote needs one benchtop (1200 × 250 × 20 mm or larger).
-        Narrow shelves and offcuts can be added alongside, down to 300 × 250 × 20 mm.
-      </p>
     </section>
   );
 }
@@ -180,7 +176,6 @@ function PanelRow({
           </svg>
         </label>
         <div className="panel-row__subtotal" aria-label="Cost for this panel">
-          <span className="panel-row__subtotal-label">This panel</span>
           <span className="panel-row__subtotal-value">{formatNZD(lineTotal)}</span>
         </div>
         {canRemove && (

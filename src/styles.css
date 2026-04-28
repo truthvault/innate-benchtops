@@ -254,16 +254,36 @@ a { color: inherit; }
   list-style: none; margin: 0; padding: 0;
   display: flex; flex-direction: column; gap: .8rem;
 }
+/* Sits below the panel rows as a dashed-bordered card the same shape as
+   a panel row. Reads as "tap here to open another panel" rather than as
+   a small inline action. Click triggers addPanel(), which appends a new
+   panel row above this card with the is-fresh fade-in. */
 .panel-editor__add {
-  margin-top: 1rem;
-  display: inline-flex; align-items: center; gap: .45rem;
-  color: var(--forest);
-  font-size: .9rem; font-weight: 500;
-  padding: .55rem .8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  margin-top: .8rem;
+  padding: .9rem;
+  background: transparent;
+  border: 1.5px dashed var(--stone-300);
   border-radius: var(--radius);
-  transition: background .15s var(--ease);
+  color: var(--forest);
+  font-size: .92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    border-color .15s var(--ease),
+    background .15s var(--ease),
+    color .15s var(--ease);
 }
-.panel-editor__add:hover { background: var(--forest-soft); }
+.panel-editor__add:hover {
+  background: var(--forest-soft);
+  border-color: var(--forest);
+  color: var(--forest-ink);
+  border-style: solid;
+}
 
 /* ---------- panel row ---------- */
 
@@ -374,12 +394,17 @@ a { color: inherit; }
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+/* Visual weight matches the Stepper sitting on the left half of the
+   row: same border, same height, same background. The active button
+   shifts to paper-white with forest text + bolder weight, so the
+   selected option is unmistakable without the chunky forest fill that
+   used to clash with the muted grey of the inactive button. */
 .panel-row__finish-controls {
   display: inline-flex;
   border: 1px solid var(--stone-200);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--paper);
+  background: var(--stone-50);
   height: 32px;
   align-self: flex-start;
 }
@@ -388,17 +413,18 @@ a { color: inherit; }
   padding: 0 .8rem;
   font-size: .82rem;
   font-weight: 500;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   white-space: nowrap;
   transition: background .12s var(--ease), color .12s var(--ease);
 }
-.panel-row__finish-btn:hover { color: var(--ink-soft); }
+.panel-row__finish-btn:hover { background: var(--forest-soft); }
 .panel-row__finish-btn + .panel-row__finish-btn {
   border-left: 1px solid var(--stone-200);
 }
 .panel-row__finish-btn.is-on {
-  background: var(--forest);
-  color: #f3f0ee;
+  background: var(--paper);
+  color: var(--forest);
+  font-weight: 600;
 }
 .panel-row__subtotal {
   display: inline-flex;
