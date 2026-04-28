@@ -293,7 +293,7 @@ export function textBody(payload: SendQuotePayload, shareUrl: string): string {
     `Total:      ${nzd(totals.grand)} incl GST`,
     "",
     `What happens next:`,
-    `  1. Confirm and source. We come back to confirm your order, and start sourcing your timber direct from our sawmillers.`,
+    `  1. Confirm. We come back to confirm your order. Your timber's already on our racks in Christchurch, ready to mill.`,
     `  2. Craft. ${finishStep}`,
     `  3. Dispatch. Wrapped and dispatched. Estimated ${dispatchWeek}.`,
     "",
@@ -373,8 +373,8 @@ export function htmlBody(payload: SendQuotePayload, shareUrl: string): string {
               <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:999px;background:#163832;color:#f3f0ee;font-weight:600;font-size:12px">1</div>
             </td>
             <td style="vertical-align:top;padding:8px 0">
-              <div style="font-weight:600;color:#0c201c">Confirm and source</div>
-              <div style="color:#14141399">We come back to confirm your order, and start sourcing your timber direct from our sawmillers.</div>
+              <div style="font-weight:600;color:#0c201c">Confirm</div>
+              <div style="color:#14141399">We come back to confirm your order. Your timber's already on our racks in Christchurch, ready to mill.</div>
             </td>
           </tr>
           <tr>

@@ -143,7 +143,11 @@ export default function App() {
 
       <header className="mast">
         <div className="mast__left">
-          <span className="mast__brand">INNATE</span>
+          <img
+            className="mast__logo"
+            src="https://innatefurniture.co.nz/cdn/shop/files/Innate_Logo_Concept_1.png?width=360"
+            alt="Innate Furniture"
+          />
           <span className="mast__sep" aria-hidden>·</span>
           <span className="mast__title">Benchtops</span>
         </div>
