@@ -141,12 +141,18 @@ export function SlabPreview({
   // the natural look (no transform). Other combinations reference filters
   // defined in the SVG <defs> below; for a colour + raw combination the
   // filter chains the colour matrix into the raw matrix internally.
-  const filterId =
-    colour === "clear" && finish === "oiled"
-      ? undefined
-      : colour === "clear" && finish === "raw"
-        ? "url(#finish-raw)"
-        : `url(#colour-${colour}${finish === "raw" ? "-raw" : ""})`;
+  // Darkwash also branches on species — beech's source photo is darker
+  // than rimu/tōtara, so the default aggressive darkwash matrix would
+  // crush its grain to pure black. Beech uses a gentler variant.
+  const filterId = (() => {
+    if (colour === "clear" && finish === "oiled") return undefined;
+    if (colour === "clear" && finish === "raw") return "url(#finish-raw)";
+    const rawSuffix = finish === "raw" ? "-raw" : "";
+    if (colour === "darkwash" && species === "beech") {
+      return `url(#colour-darkwash-beech${rawSuffix})`;
+    }
+    return `url(#colour-${colour}${rawSuffix})`;
+  })();
 
   const commitEdit = (placed: PlacedCutout, field: CutoutField, raw: string) => {
     if (!onCutoutChange) { setEditing(null); return; }
@@ -432,22 +438,16 @@ export function SlabPreview({
             wood pixel (255, 230, 150) maps to ~(90, 79, 59) ≈
             #5a4f3b, and a mid-tone (200, 150, 90) maps to ~(66, 51, 35)
             ≈ #423322 — true browns with no red dominance.
-            Darkwash — near-black with grain still readable across
-            every species, including beech (which is already a darker
-            base photo than rimu / tōtara). Earlier iteration used
-            heavier negative offsets (-0.05) that clipped beech's
-            dark pixels to flat 0 in every channel, killing grain
-            visibility. New version keeps small diagonals (R 0.14,
-            G 0.07, B 0.04) but pulls offsets nearly to zero (-0.01)
-            so dark source pixels still produce small positive values
-            rather than getting clamped at zero. The diagonals
-            preserve relative luminance variation across the photo,
-            which is what reads as "grain" — the offsets just shift
-            the average down. On a typical bright wood pixel
-            (255, 230, 150) the output is ~(50, 37, 13) ≈ #32250d
-            (dark espresso). On a dark beech pixel (60, 50, 30) it's
-            ~(9, 6, 1) — still very dark but distinct from neighbouring
-            pixels.
+            Darkwash — near-black, species-branched. Rimu and tōtara
+            use the aggressive matrix (diagonals 0.10/0.06/0.04, offsets
+            -0.05) which lands their bright source pixels in the
+            (~30, 20, 3) range — solid espresso, slight warm undertone.
+            Beech's source photo is already darker; the same matrix
+            clips beech to flat 0 in every channel and kills the grain.
+            For beech only, a gentler variant (#colour-darkwash-beech)
+            uses offsets -0.02 with slightly larger diagonals so the
+            darker source pixels still produce small positive values
+            and grain stays readable. Selected per-render by species.
           */}
           <filter id="colour-bark" x="0" y="0" width="100%" height="100%">
             <feColorMatrix
@@ -483,9 +483,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.14 0.06 0.02 0 -0.01
-                0.08 0.07 0.02 0 -0.01
-                0.02 0.02 0.04 0 -0.01
+                0.10 0.06 0.03 0 -0.05
+                0.06 0.06 0.03 0 -0.05
+                0.02 0.02 0.04 0 -0.05
                 0    0    0    1  0"
             />
           </filter>
@@ -493,9 +493,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.14 0.06 0.02 0 -0.01
-                0.08 0.07 0.02 0 -0.01
-                0.02 0.02 0.04 0 -0.01
+                0.10 0.06 0.03 0 -0.05
+                0.06 0.06 0.03 0 -0.05
+                0.02 0.02 0.04 0 -0.05
                 0    0    0    1  0"
               result="darkwash"
             />
@@ -509,6 +509,49 @@ export function SlabPreview({
                 0    0    0    1 0"
             />
           </filter>
+
+          {/*
+            Beech-specific Darkwash. The default darkwash matrix above is
+            tuned to produce a near-black on the bright rimu / tōtara
+            source photos; applied to beech (which is already a darker
+            base photo) the negative offsets clip every channel to 0
+            and the grain disappears. This variant softens the offsets
+            (-0.05 → -0.02) and lifts the diagonals slightly so beech's
+            darker source pixels still produce small positive values
+            and the grain remains visible. Selected by the filterId
+            switch above when species === "beech".
+          */}
+          <filter id="colour-darkwash-beech" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                0.13 0.06 0.03 0 -0.02
+                0.07 0.07 0.03 0 -0.02
+                0.02 0.02 0.05 0 -0.02
+                0    0    0    1  0"
+            />
+          </filter>
+          <filter id="colour-darkwash-beech-raw" x="0" y="0" width="100%" height="100%">
+            <feColorMatrix
+              type="matrix"
+              values="
+                0.13 0.06 0.03 0 -0.02
+                0.07 0.07 0.03 0 -0.02
+                0.02 0.02 0.05 0 -0.02
+                0    0    0    1  0"
+              result="darkwash"
+            />
+            <feColorMatrix
+              in="darkwash"
+              type="matrix"
+              values="
+                0.78 0.15 0.07 0 0.02
+                0.15 0.78 0.07 0 0.02
+                0.10 0.12 0.78 0 0.02
+                0    0    0    1 0"
+            />
+          </filter>
+
           <linearGradient id="cutout-grad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
             <stop offset="100%" stopColor="#faf7f2" stopOpacity="1" />
