@@ -423,10 +423,13 @@ export function SlabPreview({
             lift the negative offsets in the last column rather than
             softening the diagonals.
 
-            Country bark — dark warm brown. Damps green and crushes blue
-            to push the photo's mid-tones into a saturated red-brown,
-            then darkens overall via negative offsets. Reads as a real
-            brown wood stain (not a yellow tint).
+            Country bark — dark warm brown. Crushes green to ~18% and
+            blue to ~10%, holds red at 50%; this lifts the R/G ratio
+            high enough across the highlight range that bright areas of
+            the photo (which would otherwise read as tan/yellow) sit
+            firmly in saturated brown territory. A bright wood pixel
+            (255, 230, 150) maps to roughly (129, 64, 14) — R/G ratio
+            ~2.0, unambiguously brown not yellow.
             Darkwash — near-black with a faint warm undertone. All
             diagonals down to ~10–18% so even the highlights crush to
             espresso, with red held marginally higher than green/blue
@@ -436,9 +439,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.55 0.10 0.05 0 -0.06
-                0.25 0.30 0.05 0 -0.10
-                0.08 0.05 0.15 0 -0.10
+                0.50 0.05 0.02 0 -0.05
+                0.15 0.18 0.03 0 -0.08
+                0.05 0.03 0.10 0 -0.08
                 0    0    0    1  0"
             />
           </filter>
@@ -446,9 +449,9 @@ export function SlabPreview({
             <feColorMatrix
               type="matrix"
               values="
-                0.55 0.10 0.05 0 -0.06
-                0.25 0.30 0.05 0 -0.10
-                0.08 0.05 0.15 0 -0.10
+                0.50 0.05 0.02 0 -0.05
+                0.15 0.18 0.03 0 -0.08
+                0.05 0.03 0.10 0 -0.08
                 0    0    0    1  0"
               result="bark"
             />
