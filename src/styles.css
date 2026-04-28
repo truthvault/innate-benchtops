@@ -95,13 +95,12 @@ a { color: inherit; }
   background: var(--stone-50);
   position: sticky; top: 0; z-index: 20;
 }
-.mast__left { display: flex; align-items: baseline; gap: .55rem; }
+.mast__left { display: flex; align-items: center; gap: .55rem; }
 .mast__logo {
   height: auto;
   width: 120px;
   max-width: 38vw;
   display: block;
-  transform: translateY(4px);
 }
 .mast__sep { color: var(--ink-faint); }
 .mast__title {
@@ -109,7 +108,7 @@ a { color: inherit; }
   color: var(--ink-soft);
 }
 .mast__right {
-  display: flex; align-items: baseline; gap: .5rem;
+  display: flex; align-items: center; gap: .5rem;
   color: var(--ink-soft);
 }
 .mast__quote-label {
@@ -2301,11 +2300,18 @@ a { color: inherit; }
 @media (max-width: 720px) {
   .stickybar__inner {
     flex-wrap: wrap;
-    padding: .35rem 1rem;
-    gap: .35rem .4rem;
+    padding: .4rem 1rem;
+    gap: .55rem .4rem;
   }
   .stickybar__lead { display: none; }
   .stickybar__group-label { display: none; }
+
+  /* Tighter toggle buttons on mobile so Finish + Delivery fit on one row
+     even at 380px. Reads: Oiled|Raw  Pick up|Deliver to me. */
+  .stickybar__finish-btn {
+    padding: .35rem .55rem;
+    font-size: .74rem;
+  }
 
   .stickybar__group:not(:has(.stickybar__delivery)) {
     flex: 0 0 auto;
@@ -2336,9 +2342,12 @@ a { color: inherit; }
     order: 1;
     flex: 1 1 100%;
     flex-direction: row;
-    align-items: baseline;
+    align-items: center;
+    justify-content: flex-start;
     width: 100%;
-    padding: .15rem 0;
+    margin: 0;
+    padding: .25rem 0;
+    text-align: left;
   }
   .stickybar__price--btn .stickybar__amount { font-size: 1.4rem; }
   .stickybar__price--btn .stickybar__note { display: none; }
