@@ -2324,12 +2324,15 @@ a { color: inherit; }
 
   .stickybar__group:not(:has(.stickybar__delivery)) {
     flex: 0 0 auto;
+    order: 2;
+    align-self: flex-start;
   }
   .stickybar__group:has(.stickybar__delivery) {
     flex: 1 1 auto;
     min-width: 0;
     max-width: none;
     align-items: flex-start;
+    order: 1;
   }
   .stickybar__delivery {
     flex: 1 1 auto;
